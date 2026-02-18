@@ -1,0 +1,7 @@
+espn-api>=0.45.1
+gspread>=6.1.2
+google-auth>=2.38.0
+pandas>=2.2.0
+python-dotenv>=1.0.1
+requests>=2.32.0
+numpy>=2.0.0
