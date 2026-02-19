@@ -118,8 +118,6 @@ class FantasyCalculator:
             DataFrame with opponent toughness metrics
         """
         df = self.calculate_weekly_pf_pa_rankings()
-
-        print("weekly_pf_pa_rankings: \n", df[df['week'] == 1].to_string())
         
         # Create opponent's PF rank lookup
         opponent_ranks = df[['week', 'team_id', 'pf_rank']].rename(
@@ -193,17 +191,38 @@ class FantasyCalculator:
                     'total_games_missed': games_missed_injury + games_missed_ir,
                     'lost_points_injury': round(lost_points_injury, 2),
                     'lost_points_ir': round(lost_points_ir, 2),
-                    'total_lost_points': round(lost_points_injury + lost_points_ir, 2)
+                    'total_lost_points': round(lost_points_injury + lost_points_ir, 2),
                 })
 
         df = pd.DataFrame(injury_data)
-        # print("RAW INJURY STATS: \n", df.to_string())
+        # print("RAW INJURY STATS: \n", df.head(12).to_string(index=False))
+
+        # df = df.groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+        # print("GROUPED INJKURY STATS: \n", df.head(24).to_string(index=False))
         
-        # Calculate cumulative stats
+        # Calculate cumulative stats - broken down by injury vs IR
         if not df.empty:
             df = df.sort_values(['team_id', 'week'])
-            df['cumulative_games_missed'] = df.groupby('team_id')['total_games_missed'].cumsum()
-            df['cumulative_lost_points'] = df.groupby('team_id')['total_lost_points'].cumsum()
+            
+            # Cumulative columns broken down
+            df['cumulative_games_missed_injury'] = df.groupby('team_id')['games_missed_injury'].cumsum()
+            df['cumulative_games_missed_ir'] = df.groupby('team_id')['games_missed_ir'].cumsum()
+            df['cumulative_total_games_missed'] = df.groupby('team_id')['total_games_missed'].cumsum()
+            
+            df['cumulative_lost_points_injury'] = df.groupby('team_id')['lost_points_injury'].cumsum()
+            df['cumulative_lost_points_ir'] = df.groupby('team_id')['lost_points_ir'].cumsum()
+            df['cumulative_total_lost_points'] = df.groupby('team_id')['total_lost_points'].cumsum()
+            
+            # Average columns (cumulative / weeks played)
+            df['avg_games_missed_injury'] = (df['cumulative_games_missed_injury'] / df['week']).round(2)
+            df['avg_games_missed_ir'] = (df['cumulative_games_missed_ir'] / df['week']).round(2)
+            df['avg_total_games_missed'] = (df['cumulative_total_games_missed'] / df['week']).round(2)
+            
+            df['avg_lost_points_injury'] = (df['cumulative_lost_points_injury'] / df['week']).round(2)
+            df['avg_lost_points_ir'] = (df['cumulative_lost_points_ir'] / df['week']).round(2)
+            df['avg_total_lost_points'] = (df['cumulative_total_lost_points'] / df['week']).round(2)
+        
+        # print("RAW INJURY STATS AFTER CUMULATIVE + AVERAGE CALCULATION:\n", df.head(24).to_string(index=False))
         
         return df
     
@@ -292,7 +311,7 @@ class FantasyCalculator:
         standings = []
         
         for team_id, team in self.teams.items():
-            if team_id == 1: print("TEAM DATA: ", team)
+            # if team_id == 1: print("TEAM DATA: ", team)
             team_weeks = self.weekly_df[self.weekly_df['team_id'] == team_id]
             
             wins = sum(1 for _, row in team_weeks.iterrows() if row['pf'] > row['pa'])
@@ -310,12 +329,13 @@ class FantasyCalculator:
                 'total_pa': round(team_weeks['pa'].sum(), 2),
                 'avg_pf': round(team_weeks['pf'].mean(), 2),
                 'avg_pa': round(team_weeks['pa'].mean(), 2),
-                'differential': round(team_weeks['pf'].sum() - team_weeks['pa'].sum(), 2)
+                'differential': round(team_weeks['pf'].sum() - team_weeks['pa'].sum(), 2),
             })
         
         df = pd.DataFrame(standings)
         df = df.sort_values(['wins', 'total_pf'], ascending=[False, False])
         df['rank'] = range(1, len(df) + 1)
+        df['avg_differential'] = round(df['differential'] / self.max_week, 2)
         
         return df
     
