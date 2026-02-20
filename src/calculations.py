@@ -86,8 +86,10 @@ class FantasyCalculator:
         
         # Calculate PA rank for each week (1 = highest points against)
         df['pa_rank'] = df.groupby('week')['pa'].rank(ascending=False, method='min')
+
+        df['differential'] = df['pf'] - df['pa']
         
-        return df[['week', 'team_id', 'team_name', 'pf', 'pa', 'pf_rank', 'pa_rank', 'opponent_id']]
+        return df[['week', 'team_id', 'team_name', 'pf', 'pa', 'pf_rank', 'pa_rank', 'opponent_id', 'differential']]
     
     def calculate_cumulative_stats(self) -> pd.DataFrame:
         """
@@ -105,8 +107,29 @@ class FantasyCalculator:
         df['cumulative_pf'] = df.groupby('team_id')['pf'].cumsum()
         df['cumulative_pa'] = df.groupby('team_id')['pa'].cumsum()
         df['cumulative_differential'] = df['cumulative_pf'] - df['cumulative_pa']
+
+        # Calculate cumulative wins/losses per week
+        df['win'] = (df['pf'] > df['pa']).astype(int)
+        df['loss'] = (df['pf'] < df['pa']).astype(int)
+        df['wins'] = df.groupby('team_id')['win'].cumsum()
+        df['losses'] = df.groupby('team_id')['loss'].cumsum()
+        df['games_played'] = df['wins'] + df['losses']
+        df['win_pct'] = (df['wins'] / df['games_played']).round(3)
         
-        return df[['week', 'team_id', 'team_name', 'cumulative_pf', 'cumulative_pa', 'cumulative_differential']]
+        # Calculate cumulative rankings by week
+        # Rank by cumulative PF (descending) - rank 1 = most points scored
+        df['pf_rank'] = df.groupby('week')['cumulative_pf'].rank(ascending=False, method='min')
+        
+        # Rank by cumulative PA (ascending) - rank 1 = most points against
+        df['pa_rank'] = df.groupby('week')['cumulative_pa'].rank(ascending=False, method='min')
+        
+        # Calculate overall rank by wins, then cumulative PF
+        # First create a composite score (wins * 1000000 + cumulative_pf) for ranking
+        df['rank_score'] = df['wins'] * 1000000 + df['cumulative_pf']
+        df['rank'] = df.groupby('week')['rank_score'].rank(ascending=False, method='min').astype(int)
+        df = df.drop('rank_score', axis=1)
+        
+        return df[['week', 'rank', 'team_id', 'team_name', 'wins', 'losses', 'win_pct', 'pf_rank', 'pa_rank', 'cumulative_pf', 'cumulative_pa', 'cumulative_differential']]
     
     def calculate_toughest_opponent_rank(self) -> pd.DataFrame:
         """
