@@ -197,7 +197,7 @@ class FantasyCalculator:
         df = pd.DataFrame(injury_data)
         # print("RAW INJURY STATS: \n", df.head(12).to_string(index=False))
 
-        # df = df.groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+        df = df.groupby(['week', 'team_id', 'team_name']).sum().reset_index()
         # print("GROUPED INJKURY STATS: \n", df.head(24).to_string(index=False))
         
         # Calculate cumulative stats - broken down by injury vs IR
