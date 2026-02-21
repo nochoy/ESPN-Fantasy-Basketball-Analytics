@@ -33,8 +33,14 @@ class GoogleSheetsExporter:
             sheet_name: Name of the Google Sheet to create/use
         """
         self.credentials_path = credentials_path or os.getenv('GOOGLE_CREDENTIALS_PATH', './config/google-credentials.json')
+        print("***************init PRE sheet_name: ", sheet_name)
+        # print("***************init PRE folder_id: ", folder_id)
+
         self.sheet_name = sheet_name or os.getenv('GOOGLE_SHEET_NAME', 'ESPN Fantasy Basketball Analytics')
+        # self.folder_id = folder_id or os.getenv('GOOGLE_FOLDER_ID', None)
         
+        print("***************init AFTER sheet_name: ", self.sheet_name)
+        # print("***************init AFTER folder_id: ", self.folder_id)
         self.client = None
         self.sheet = None
         self._authenticate()
@@ -63,15 +69,21 @@ class GoogleSheetsExporter:
             self.sheet = self.client.open(self.sheet_name)
             print(f"✓ Opened existing sheet: '{self.sheet_name}'")
         except gspread.SpreadsheetNotFound:
+            print("Cannot find sheet: ", self.sheet_name)
             # Create new sheet
-            self.sheet = self.client.create(self.sheet_name)
-            print(f"✓ Created new sheet: '{self.sheet_name}'")
+
+            # if self.folder_id:
+            #     self.sheet = self.client.create(self.sheet_name, folder_id=self.folder_id)
+            # else:
+            #     self.sheet = self.client.create(self.sheet_name)  # Creates in service account Drive
             
-            # Share with user if email is in env
-            user_email = os.getenv('GOOGLE_USER_EMAIL')
-            if user_email:
-                self.sheet.share(user_email, perm_type='user', role='writer')
-                print(f"  Shared with {user_email}")
+            # print(f"✓ Created new sheet: '{self.sheet_name}'")
+
+            # # Share with user if email is in env
+            # user_email = os.getenv('GOOGLE_USER_EMAIL')
+            # if user_email:
+            #     self.sheet.share(user_email, perm_type='user', role='writer')
+            #     print(f"  Shared with {user_email}")
         
         return self.sheet
     
@@ -191,15 +203,15 @@ class GoogleSheetsExporter:
         self.write_dataframe(ws_injury, stats['injury_stats'])
         print("  ✓ Exported: Injury Analysis")
         
-        # 6. Luck Factor
-        ws_luck = self.create_worksheet('Luck Factor')
-        self.write_dataframe(ws_luck, stats['luck_factor'])
-        print("  ✓ Exported: Luck Factor")
+        # # 6. Luck Factor
+        # ws_luck = self.create_worksheet('Luck Factor')
+        # self.write_dataframe(ws_luck, stats['luck_factor'])
+        # print("  ✓ Exported: Luck Factor")
         
-        # 7. Consistency
-        ws_consistency = self.create_worksheet('Consistency')
-        self.write_dataframe(ws_consistency, stats['consistency'])
-        print("  ✓ Exported: Consistency")
+        # # 7. Consistency
+        # ws_consistency = self.create_worksheet('Consistency')
+        # self.write_dataframe(ws_consistency, stats['consistency'])
+        # print("  ✓ Exported: Consistency")
         
         # Auto-resize columns for all worksheets
         self._auto_resize_columns()
@@ -253,8 +265,8 @@ class GoogleSheetsExporter:
             ws = self.sheet.add_worksheet('Dashboard', rows=50, cols=20)
         
         standings = stats['standings']
-        consistency = stats['consistency']
-        luck = stats['luck_factor'].groupby(['team_id', 'team_name'])['cumulative_luck'].last().reset_index()
+        # consistency = stats['consistency']
+        # luck = stats['luck_factor'].groupby(['team_id', 'team_name'])['cumulative_luck'].last().reset_index()
         
         # Build dashboard data
         dashboard_data = [['🏀 ESPN Fantasy Basketball Analytics', '', '', '', '']]
@@ -275,26 +287,26 @@ class GoogleSheetsExporter:
             ])
         
         dashboard_data.append(['', '', '', '', ''])
-        dashboard_data.append(['🍀 Luckiest Teams (Most Wins Above Expected)', '', '', '', ''])
-        dashboard_data.append(['Team', 'Luck Score', '', '', ''])
+        # dashboard_data.append(['🍀 Luckiest Teams (Most Wins Above Expected)', '', '', '', ''])
+        # dashboard_data.append(['Team', 'Luck Score', '', '', ''])
         
-        luck_sorted = luck.sort_values('cumulative_luck', ascending=False)
-        for _, row in luck_sorted.head(5).iterrows():
-            dashboard_data.append([row['team_name'], f"{row['cumulative_luck']:+.2f}", '', '', ''])
+        # luck_sorted = luck.sort_values('cumulative_luck', ascending=False)
+        # for _, row in luck_sorted.head(5).iterrows():
+        #     dashboard_data.append([row['team_name'], f"{row['cumulative_luck']:+.2f}", '', '', ''])
         
-        dashboard_data.append(['', '', '', '', ''])
-        dashboard_data.append(['📈 Most Consistent Teams (Low Std Dev)', '', '', '', ''])
-        dashboard_data.append(['Team', 'Avg PF', 'Std Dev', 'Consistency Score', ''])
+        # dashboard_data.append(['', '', '', '', ''])
+        # dashboard_data.append(['📈 Most Consistent Teams (Low Std Dev)', '', '', '', ''])
+        # dashboard_data.append(['Team', 'Avg PF', 'Std Dev', 'Consistency Score', ''])
         
-        consistency_sorted = consistency.sort_values('consistency_score')
-        for _, row in consistency_sorted.head(5).iterrows():
-            dashboard_data.append([
-                row['team_name'],
-                row['avg_pf'],
-                row['std_pf'],
-                row['consistency_score'],
-                ''
-            ])
+        # consistency_sorted = consistency.sort_values('consistency_score')
+        # for _, row in consistency_sorted.head(5).iterrows():
+        #     dashboard_data.append([
+        #         row['team_name'],
+        #         row['avg_pf'],
+        #         row['std_pf'],
+        #         row['consistency_score'],
+        #         ''
+        #     ])
         
         # Write dashboard
         ws.update('A1', dashboard_data)

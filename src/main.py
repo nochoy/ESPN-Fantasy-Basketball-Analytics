@@ -17,7 +17,8 @@ load_dotenv()
 
 
 def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
-                  skip_export: bool = False, weeks: Optional[int] = None):
+                  skip_export: bool = False, weeks: Optional[int] = None, 
+                  sheet_name: Optional[str] = None):
     """
     Run the full analytics pipeline
     
@@ -25,6 +26,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
         league_id: ESPN league ID (optional, defaults to env var)
         year: Season year (optional, defaults to env var)
         skip_export: Skip Google Sheets export
+        sheet_name: Name of Google Sheet to create/use
         weeks: Number of weeks to analyze (default: all completed weeks)
     """
     print("=" * 60)
@@ -70,7 +72,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     print(f"  ✓ Loaded {len(matchup_summaries)} total matchup summaries")
     print(f"  ✓ Loaded {len(matchups)} total matchups")
     # print("matchup_summary[0]: ", (matchup_summaries[0]))
-    print("matchup[0]: ", (matchups[0]))
+    # print("matchup[0]: ", (matchups[0]))
     # print("box scores: ", matchups)
     
     # Step 4: Calculate all statistics
@@ -134,24 +136,27 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     toughness_summary = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_opp_rank'].last().sort_values().reset_index()
     print("TOUGHNESS SUMMARY: (lower = tougher) \n", toughness_summary.to_string(index=False))
     print("toughness stats: \n", stats['toughest_opponents'].sort_values(['week', 'opponent_pf_rank']).head(24).to_string(index=False))
+
+
+
+    # print("\n📉 Consistency Rankings (Most Consistent):")
+    # consistency_summary = stats['consistency'][['team_name', 'avg_pf', 'std_pf', 'consistency_score']].head()
+    # print(consistency_summary.to_string(index=False))
     
-    print("\n📉 Consistency Rankings (Most Consistent):")
-    consistency_summary = stats['consistency'][['team_name', 'avg_pf', 'std_pf', 'consistency_score']].head()
-    print(consistency_summary.to_string(index=False))
-    
-    print("\n🍀 Luck Factor (Luckiest Teams):")
-    luck_summary = stats['luck_factor'].groupby('team_name')['cumulative_luck'].last().sort_values(ascending=False).head()
-    for team, luck in luck_summary.items():
-        print(f"  {team}: {luck:+.2f}")
+    # print("\n🍀 Luck Factor (Luckiest Teams):")
+    # luck_summary = stats['luck_factor'].groupby('team_name')['cumulative_luck'].last().sort_values(ascending=False).head()
+    # for team, luck in luck_summary.items():
+    #     print(f"  {team}: {luck:+.2f}")
     
 
-    return
+    # return
     
     # Step 5: Export to Google Sheets
     if not skip_export:
         print("\n📤 Exporting to Google Sheets...")
         try:
-            exporter = GoogleSheetsExporter()
+            print("***************main sheet_name: ", sheet_name)
+            exporter = GoogleSheetsExporter(sheet_name=sheet_name)
             exporter.export_all_stats(stats)
             exporter.create_summary_dashboard(stats)
         except Exception as e:
@@ -159,7 +164,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
             print("\nMake sure your Google credentials are set up correctly:")
             print("  1. Download service account JSON from Google Cloud Console")
             print("  2. Save it to config/google-credentials.json")
-            print("  3. Set GOOGLE_SHEET_NAME in .env file")
+            print("  3. Set GOOGLE_SHEET_NAME in .env file or use CLI arg")
     else:
         print("\n⏭️  Skipping Google Sheets export (--skip-export flag used)")
     
@@ -192,10 +197,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python src/main.py                    # Run with .env settings
-  python src/main.py --weeks 10         # Only analyze first 10 weeks
-  python src/main.py --skip-export      # Don't export to Google Sheets
-  python src/main.py --league-id 12345  # Override league ID
+  python src/main.py                                        # Run with .env settings
+  python src/main.py --weeks 10                             # Only analyze first 10 weeks
+  python src/main.py --skip-export                          # Don't export to Google Sheets
+  python src/main.py --league-id 12345                      # Override league ID
+  python src/main.py --sheet-name "Fantasy Analytics"       # Existing or desired Google sheet name
         """
     )
     
@@ -207,6 +213,8 @@ Examples:
                        help='Number of weeks to analyze')
     parser.add_argument('--skip-export', action='store_true',
                        help='Skip Google Sheets export')
+    parser.add_argument('--sheet-name', type=str, 
+                       help='Name of Google sheet to create or use (overrides .env)')
     parser.add_argument('--setup', action='store_true',
                        help='Create .env file from template')
     
@@ -226,7 +234,8 @@ Examples:
         league_id=args.league_id,
         year=args.year,
         skip_export=args.skip_export,
-        weeks=args.weeks
+        weeks=args.weeks,
+        sheet_name=args.sheet_name,
     )
 
 
