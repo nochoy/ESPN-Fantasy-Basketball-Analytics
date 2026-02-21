@@ -165,7 +165,7 @@ class FantasyCalculator:
         
         # Calculate cumulative average opponent rank (lower is tougher)
         result = result.sort_values(['team_id', 'week'])
-        result['cumulative_avg_opp_rank'] = result.groupby('team_id')['opponent_pf_rank'].expanding().mean().reset_index(0, drop=True)
+        result['cumulative_avg_opp_rank'] = round(result.groupby('team_id')['opponent_pf_rank'].expanding().mean().reset_index(0, drop=True), 2)
         
         return result[['week', 'team_id', 'team_name', 'opponent_pf_rank', 'cumulative_avg_opp_rank', 'pf', 'pa']]
     
