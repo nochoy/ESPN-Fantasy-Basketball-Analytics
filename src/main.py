@@ -119,9 +119,8 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     print("FINAL AVERAGE INJUSRY STATS:")
     print(injury_summary[['team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].to_string(index=False))
     
-    print("TOTAL INJURY STATS 2:")
     injury_weekly = stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
-    print("WEEKLY TOTAL INJURY STATS: \n")
+    print("\n\nWEEKLY TOTALS INJURY STATS: \n")
     print(injury_weekly[['week', 'team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].head(24).to_string(index=False))
     print("CUMULATIVE AVERAGE INJURY STATS:\n")
     print(injury_weekly[['week', 'team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].head(24).to_string(index=False))
@@ -132,9 +131,8 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     # print("INJURY STSA:\n", stats['injury_stats'][stats['injury_stats']['week'] == 1].to_string())
 
     print("\n💪 Toughest Schedules (Hardest Opponents):")
-    toughness_summary = stats['toughest_opponents'].groupby('team_name')['cumulative_avg_opp_rank'].last().sort_values().head()
-    for team, rank in toughness_summary.items():
-        print(f"  {team}: {rank:.2f} (lower = tougher)")
+    toughness_summary = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_opp_rank'].last().sort_values().reset_index()
+    print("TOUGHNESS SUMMARY: (lower = tougher) \n", toughness_summary.to_string(index=False))
     print("toughness stats: \n", stats['toughest_opponents'].sort_values(['week', 'opponent_pf_rank']).head(24).to_string(index=False))
     
     print("\n📉 Consistency Rankings (Most Consistent):")
