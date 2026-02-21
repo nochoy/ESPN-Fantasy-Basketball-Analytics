@@ -57,7 +57,7 @@ class GoogleSheetsExporter:
         except Exception as e:
             raise AuthenticationError(f"Failed to authenticate with Google Sheets: {e}")
     
-    def get_or_create_sheet(self) -> gspread.Spreadsheet:
+    def get_sheet(self) -> gspread.Spreadsheet:
         """
         Get existing sheet or create new one
         
@@ -100,7 +100,7 @@ class GoogleSheetsExporter:
             worksheets[0].clear()
             worksheets[0].update_title('Overview')
     
-    def create_worksheet(self, title: str, rows: int = 1000, cols: int = 50) -> gspread.Worksheet:
+    def create_worksheet(self, title: str, rows: int = 300, cols: int = 20) -> gspread.Worksheet:
         """
         Create a new worksheet
         
@@ -165,7 +165,7 @@ class GoogleSheetsExporter:
     
     def export_all_stats(self, stats: Dict[str, pd.DataFrame]):
         """
-        Export all statistics to Google Sheets
+        Export all statistics to Google Sheets (matching main.py output)
         
         Args:
             stats: Dictionary of DataFrames with calculated stats
@@ -173,50 +173,67 @@ class GoogleSheetsExporter:
         print("\nExporting to Google Sheets...")
         
         # Get or create sheet
-        self.get_or_create_sheet()
+        self.get_sheet()
         
-        # Export each stat category to its own worksheet
-        
-        # 1. Overview / Standings
+        # 1. Standings (full data)
         ws_standings = self.create_worksheet('Standings')
         self.write_dataframe(ws_standings, stats['standings'])
         self.format_standings(ws_standings, len(stats['standings']))
         print("  ✓ Exported: Standings")
         
-        # 2. Weekly Rankings
+        # 2. Weekly Rankings (full data)
         ws_weekly = self.create_worksheet('Weekly Rankings')
         self.write_dataframe(ws_weekly, stats['weekly_rankings'])
         print("  ✓ Exported: Weekly Rankings")
         
-        # 3. Cumulative Stats
+        # 3. Cumulative Stats (full data)
         ws_cumulative = self.create_worksheet('Cumulative Stats')
         self.write_dataframe(ws_cumulative, stats['cumulative_stats'])
         print("  ✓ Exported: Cumulative Stats")
         
-        # 4. Toughest Opponents
-        ws_opponents = self.create_worksheet('Toughest Opponents')
-        self.write_dataframe(ws_opponents, stats['toughest_opponents'])
+        # 4. Injury Stats Summary (grouped by team)
+        injury_summary = stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
+            'avg_games_missed_injury': 'last',
+            'avg_games_missed_ir': 'last',
+            'avg_total_games_missed': 'last',
+            'avg_lost_points_injury': 'last',
+            'avg_lost_points_ir': 'last',
+            'avg_total_lost_points': 'last',
+            'games_missed_injury': 'sum',
+            'games_missed_ir': 'sum',
+            'total_games_missed': 'sum',
+            'lost_points_injury': 'sum',
+            'lost_points_ir': 'sum',
+            'total_lost_points': 'sum',
+        }).reset_index()
+        injury_summary = injury_summary.sort_values('total_games_missed', ascending=False)
+        
+        ws_injury_summary = self.create_worksheet('Injury Summary')
+        self.write_dataframe(ws_injury_summary, injury_summary)
+        print("  ✓ Exported: Injury Summary")
+        
+        # 5. Injury Stats Weekly (grouped by week/team)
+        injury_weekly = stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+        ws_injury_weekly = self.create_worksheet('Injury Weekly')
+        self.write_dataframe(ws_injury_weekly, injury_weekly)
+        print("  ✓ Exported: Injury Weekly")
+        
+        # 6. Toughest Opponents (grouped by team)
+        toughness_summary = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_opp_rank'].last().sort_values().reset_index()
+        ws_toughness = self.create_worksheet('Toughest Opponents')
+        self.write_dataframe(ws_toughness, toughness_summary)
         print("  ✓ Exported: Toughest Opponents")
         
-        # 5. Injury Stats
-        ws_injury = self.create_worksheet('Injury Analysis')
-        self.write_dataframe(ws_injury, stats['injury_stats'])
-        print("  ✓ Exported: Injury Analysis")
-        
-        # # 6. Luck Factor
-        # ws_luck = self.create_worksheet('Luck Factor')
-        # self.write_dataframe(ws_luck, stats['luck_factor'])
-        # print("  ✓ Exported: Luck Factor")
-        
-        # # 7. Consistency
-        # ws_consistency = self.create_worksheet('Consistency')
-        # self.write_dataframe(ws_consistency, stats['consistency'])
-        # print("  ✓ Exported: Consistency")
+        # 7. Toughest Opponents Full Data
+        ws_opponents_full = self.create_worksheet('Toughest Opponents Full')
+        self.write_dataframe(ws_opponents_full, stats['toughest_opponents'])
+        print("  ✓ Exported: Toughest Opponents Full")
         
         # Auto-resize columns for all worksheets
         self._auto_resize_columns()
         
         print(f"\n✓ All data exported to: {self.sheet.url}")
+
     
     def _auto_resize_columns(self):
         """Auto-resize all columns in all worksheets"""
