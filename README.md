@@ -69,8 +69,8 @@ pip install -r requirements.txt
 6. Click on newly created account → Go to Keys → Create JSON key (will auto download json file)
 7. Rename the key file to `google-credentials.json` and place it in `config/`
 8. Manually create empty [Google Sheet](https://docs.google.com/sheets) 
-9. Use sheet name into `.env` file or CLI arg
-
+9. Share sheet with your Service Account Email with Editor permissions
+10. Use sheet name in `.env` file or CLI arg
 
 
 ### 4. Create Environment File
