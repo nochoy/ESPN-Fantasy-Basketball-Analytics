@@ -63,10 +63,15 @@ pip install -r requirements.txt
 #### Google Sheets (Optional - for export):
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project
-3. Enable **Google Sheets API** and **Google Drive API**
+3. Go to API & Services → Library → Enable Google Drive API + Google Sheets API
 4. Go to IAM & Admin → Service Accounts
-5. Create a service account → Download JSON key
-6. Rename the key file to `google-credentials.json` and place it in `config/`
+5. Create a service account → Skip Permissions → Skip Principals with access
+6. Click on newly created account → Go to Keys → Create JSON key (will auto download json file)
+7. Rename the key file to `google-credentials.json` and place it in `config/`
+8. Manually create empty [Google Sheet](https://docs.google.com/sheets) 
+9. Use sheet name into `.env` file or CLI arg
+
+
 
 ### 4. Create Environment File
 
