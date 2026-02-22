@@ -136,9 +136,6 @@ class GoogleSheetsExporter:
         else:
             data = [df.columns.tolist()] + df.values.tolist()
         
-        # Clear the worksheet first
-        worksheet.clear()
-        
         # Write data
         worksheet.update(data, start_cell)
         
