@@ -9,7 +9,6 @@ from typing import Dict, Optional
 import gspread
 from gspread.utils import ValueRenderOption
 from google.oauth2.service_account import Credentials
-# from googleapiclient.discovery import build
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -169,27 +168,12 @@ class GoogleSheetsExporter:
         """
         print("\nExporting to Google Sheets...")
         
-        # Get or create sheet
         self.get_sheet()
         
-        # 1. Standings (full data)
-        ws_standings = self.create_worksheet('Standings')
-        self.write_dataframe(ws_standings, stats['standings'])
-        self.format_standings(ws_standings, len(stats['standings']))
-        print("  ✓ Exported: Standings")
-        
-        # 2. Weekly Rankings (full data)
-        ws_weekly = self.create_worksheet('Weekly Rankings')
-        self.write_dataframe(ws_weekly, stats['weekly_rankings'])
-        print("  ✓ Exported: Weekly Rankings")
-        
-        # 3. Cumulative Stats (full data)
-        ws_cumulative = self.create_worksheet('Cumulative Stats')
-        self.write_dataframe(ws_cumulative, stats['cumulative_stats'])
-        print("  ✓ Exported: Cumulative Stats")
-        
-        # 4. Injury Stats Summary (grouped by team)
-        injury_summary = stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
+        # 1. Standings (standings + injury stats + toughness stats)
+        standings = stats['standings']
+
+        injury_standings = stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
             'avg_games_missed_injury': 'last',
             'avg_games_missed_ir': 'last',
             'avg_total_games_missed': 'last',
@@ -203,31 +187,51 @@ class GoogleSheetsExporter:
             'lost_points_ir': 'sum',
             'total_lost_points': 'sum',
         }).reset_index()
-        injury_summary = injury_summary.sort_values('total_games_missed', ascending=False)
+
+        toughness_standings = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_opp_rank'].last().sort_values().reset_index()
+
+        standings_and_injury_df = pd.merge(standings, injury_standings, on=['team_id', 'team_name'], how='outer')
+        master_standings = pd.merge(standings_and_injury_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
+
+        master_standings_col_order = [
+            'rank', 'team_id', 'team_name', 'wins', 'losses', 'ties', 'win_pct', 
+            'total_pf', 'total_pa', 'differential', 'cumulative_avg_opp_rank', 
+            'avg_pf', 'avg_pa', 'avg_differential',
+            'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
+            'lost_points_injury', 'lost_points_ir', 'total_lost_points', 
+            'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 
+            'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points'
+        ]
+
+        master_standings = master_standings[master_standings_col_order].sort_values('rank')
+
+        ws_standings = self.create_worksheet('Standings')
+        self.write_dataframe(ws_standings, master_standings)
+        print("  ✓ Exported: Standings")
         
-        ws_injury_summary = self.create_worksheet('Injury Summary')
-        self.write_dataframe(ws_injury_summary, injury_summary)
-        print("  ✓ Exported: Injury Summary")
-        
-        # 5. Injury Stats Weekly (grouped by week/team)
+        # 2. Weekly Rankings (weekly ranks + cumulative stats + injury stats + toughness stats)
+        weekly_rankings = stats['weekly_rankings']
+        cumulative_stats = stats['cumulative_stats']
         injury_weekly = stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
-        ws_injury_weekly = self.create_worksheet('Injury Weekly')
-        self.write_dataframe(ws_injury_weekly, injury_weekly)
-        print("  ✓ Exported: Injury Weekly")
-        
-        # 6. Toughest Opponents (grouped by team)
-        toughness_summary = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_opp_rank'].last().sort_values().reset_index()
-        ws_toughness = self.create_worksheet('Toughest Opponents')
-        self.write_dataframe(ws_toughness, toughness_summary)
-        print("  ✓ Exported: Toughest Opponents")
-        
-        # 7. Toughest Opponents Full Data
-        ws_opponents_full = self.create_worksheet('Toughest Opponents Full')
-        self.write_dataframe(ws_opponents_full, stats['toughest_opponents'])
-        print("  ✓ Exported: Toughest Opponents Full")
-        
-        # Auto-resize columns for all worksheets
-        self._auto_resize_columns()
+
+        weekly_and_cumulative_df = pd.merge(weekly_rankings, cumulative_stats, on=['week', 'team_id', 'team_name'], how='outer')
+        master_weekly_rankings = pd.merge(weekly_and_cumulative_df, injury_weekly, on=['week', 'team_id', 'team_name'], how='outer')
+
+        master_weekly_col_order = [
+            'week', 'rank', 'team_id', 'team_name', 'wins', 'losses', 'win_pct', 
+            'pf', 'pa', 'differential', 'pf_rank', 'pa_rank', 
+            'cumulative_pf', 'cumulative_pa', 'cumulative_differential', 'cumulative_pf_rank', 'cumulative_pa_rank', 
+            'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
+            'lost_points_injury', 'lost_points_ir', 'total_lost_points', 
+            'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 
+            'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points'
+        ]
+
+        master_weekly_rankings = master_weekly_rankings[master_weekly_col_order]
+
+        ws_weekly = self.create_worksheet('Weekly Rankings')
+        self.write_dataframe(ws_weekly, master_weekly_rankings)
+        print("  ✓ Exported: Weekly Rankings")
         
         print(f"\n✓ All data exported to: {self.sheet.url}")
 
