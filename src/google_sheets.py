@@ -144,24 +144,9 @@ class GoogleSheetsExporter:
             'backgroundColor': {'red': 0.9, 'green': 0.9, 'blue': 0.9}
         })
     
-    def format_standings(self, worksheet: gspread.Worksheet, num_rows: int):
-        """Apply special formatting to standings sheet"""
-        # Format top 3 rows with gold/silver/bronze colors
-        formats = [
-            ('2:2', {'backgroundColor': {'red': 1, 'green': 0.84, 'blue': 0}}),  # Gold
-            ('3:3', {'backgroundColor': {'red': 0.75, 'green': 0.75, 'blue': 0.75}}),  # Silver
-            ('4:4', {'backgroundColor': {'red': 0.8, 'green': 0.5, 'blue': 0.2}}),  # Bronze
-        ]
-        
-        for range_str, format_dict in formats:
-            try:
-                worksheet.format(range_str, format_dict)
-            except:
-                pass  # Row might not exist
-    
     def export_all_stats(self, stats: Dict[str, pd.DataFrame]):
         """
-        Export all statistics to Google Sheets (matching main.py output)
+        Export all statistics to Google Sheets
         
         Args:
             stats: Dictionary of DataFrames with calculated stats
@@ -234,37 +219,6 @@ class GoogleSheetsExporter:
         print("  ✓ Exported: Weekly Rankings")
         
         print(f"\n✓ All data exported to: {self.sheet.url}")
-
-    
-    def _auto_resize_columns(self):
-        """Auto-resize all columns in all worksheets"""
-        for worksheet in self.sheet.worksheets():
-            try:
-                # Get all data to determine max width needed
-                data = worksheet.get_all_values()
-                if not data:
-                    continue
-                
-                # Calculate column widths based on content
-                num_cols = len(data[0])
-                for col_idx in range(1, num_cols + 1):
-                    max_length = 0
-                    for row in data:
-                        if col_idx <= len(row):
-                            cell_length = len(str(row[col_idx - 1]))
-                            max_length = max(max_length, cell_length)
-                    
-                    # Set column width (minimum 100 pixels, max 400)
-                    pixel_width = min(max(max_length * 8, 100), 400)
-                    
-                    # Update column width using API
-                    try:
-                        worksheet.resize_columns(col_idx, pixel_width)
-                    except:
-                        pass  # Some versions don't support this
-                        
-            except Exception as e:
-                print(f"  Warning: Could not auto-resize {worksheet.title}: {e}")
     
     def create_summary_dashboard(self, stats: Dict[str, pd.DataFrame]):
         """
