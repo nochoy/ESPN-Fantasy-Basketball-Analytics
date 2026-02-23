@@ -179,7 +179,7 @@ class GoogleSheetsExporter:
         master_standings = pd.merge(standings_and_injury_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
 
         master_standings_col_order = [
-            'rank', 'team_id', 'team_name', 'wins', 'losses', 'ties', 'win_pct', 
+            'team_name', 'team_id', 'rank', 'wins', 'losses', 'ties', 'win_pct', 
             'total_pf', 'total_pa', 'differential', 'cumulative_avg_opp_rank', 
             'avg_pf', 'avg_pa', 'avg_differential',
             'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
@@ -190,7 +190,7 @@ class GoogleSheetsExporter:
 
         master_standings = master_standings[master_standings_col_order].sort_values('rank')
 
-        ws_standings = self.create_worksheet('Standings')
+        ws_standings = self.create_worksheet('Standings', len(master_standings), len(master_standings_col_order))
         self.write_dataframe(ws_standings, master_standings)
         print("  ✓ Exported: Standings")
         
@@ -214,7 +214,7 @@ class GoogleSheetsExporter:
 
         master_weekly_rankings = master_weekly_rankings[master_weekly_col_order]
 
-        ws_weekly = self.create_worksheet('Weekly Rankings')
+        ws_weekly = self.create_worksheet('Weekly Rankings', len(master_weekly_rankings), len(master_weekly_col_order))
         self.write_dataframe(ws_weekly, master_weekly_rankings)
         print("  ✓ Exported: Weekly Rankings")
         
@@ -222,74 +222,98 @@ class GoogleSheetsExporter:
     
     def create_summary_dashboard(self, stats: Dict[str, pd.DataFrame]):
         """
-        Create a summary dashboard with key metrics
-        
-        Args:
-            stats: Dictionary of DataFrames
+        Create a comprehensive dashboard with overview and documentation
+        for first-time users of the spreadsheet.
         """
         print("\nCreating Summary Dashboard...")
         
-        # Get first worksheet or create Dashboard
         try:
             ws = self.sheet.worksheet('Dashboard')
             ws.clear()
         except gspread.WorksheetNotFound:
-            ws = self.sheet.add_worksheet('Dashboard', rows=50, cols=20)
+            ws = self.sheet.add_worksheet('Dashboard', rows=100, cols=20)
         
-        standings = stats['standings']
-        # consistency = stats['consistency']
-        # luck = stats['luck_factor'].groupby(['team_id', 'team_name'])['cumulative_luck'].last().reset_index()
+        dashboard_data = []
         
-        # Build dashboard data
-        dashboard_data = [['🏀 ESPN Fantasy Basketball Analytics', '', '', '', '']]
+        # Title
+        dashboard_data.append(['🏀 ESPN Fantasy Basketball Analytics', '', '', '', ''])
         dashboard_data.append(['', '', '', '', ''])
-        dashboard_data.append(['📊 Current Standings', '', '', '', ''])
+        
+        # Welcome message
+        dashboard_data.append(['📖 WELCOME', '', '', '', ''])
+        dashboard_data.append(['This dashboard provides an overview of your fantasy league data and explains how metrics are calculated.', '', '', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Sheet Overview
+        dashboard_data.append(['📊 SHEET OVERVIEW', '', '', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        dashboard_data.append(['Sheet Name', 'Description', '', '', ''])
+        dashboard_data.append(['Standings', 'Current league standings with wins/losses, points for/against, and differentials. Sorted by rank.', '', '', ''])
+        dashboard_data.append(['Weekly Rankings', 'Week-by-week performance for each team including PF/PA rankings. Shows how your team performed each week.', '', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Key Metrics Explained
+        dashboard_data.append(['🔍 KEY METRICS EXPLAINED', '', '', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Standings columns
+        dashboard_data.append(['STANDINGS COLUMNS:', '', '', '', ''])
+        dashboard_data.append(['Column', 'Description', 'How It\'s Calculated', '', ''])
+        dashboard_data.append(['rank', 'Current standing in the league', 'Based on wins, then total points for (PF)', '', ''])
+        dashboard_data.append(['win_pct', 'Win percentage', 'wins / (wins + losses)', '', ''])
+        dashboard_data.append(['total_pf', 'Total Points For', 'Sum of all fantasy points scored across all weeks', '', ''])
+        dashboard_data.append(['total_pa', 'Total Points Against', 'Sum of all fantasy points scored against you', '', ''])
+        dashboard_data.append(['differential', 'Point Differential', 'total_pf - total_pa (positive = scoring more than allowing)', '', ''])
+        dashboard_data.append(['avg_differential', 'Average Weekly Differential', 'differential / number of weeks played', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Weekly Rankings columns
+        dashboard_data.append(['WEEKLY RANKINGS COLUMNS:', '', '', '', ''])
+        dashboard_data.append(['Column', 'Description', 'How It\'s Calculated', '', ''])
+        dashboard_data.append(['pf', 'Points For (weekly)', 'Fantasy points your team scored that week', '', ''])
+        dashboard_data.append(['pa', 'Points Against (weekly)', 'Fantasy points your opponent scored that week', '', ''])
+        dashboard_data.append(['pf_rank', 'Points For Rank', 'Rank among all teams by PF (1 = highest scorer that week)', '', ''])
+        dashboard_data.append(['pa_rank', 'Points Against Rank', 'Rank among all teams by PA (1 = most points allowed)', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Tips
+        dashboard_data.append(['💡 TIPS FOR READING:', '', '', '', ''])
+        dashboard_data.append(['• Lower rank numbers are better (1st place is rank 1)', '', '', '', ''])
+        dashboard_data.append(['• Positive differential means you\'re outscoring your opponents on average', '', '', '', ''])
+        dashboard_data.append(['• Check Weekly Rankings to see consistency week-to-week', '', '', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Current Standings Preview
+        dashboard_data.append(['📋 CURRENT STANDINGS PREVIEW', '', '', '', ''])
         dashboard_data.append(['Rank', 'Team', 'Record', 'Win %', 'Point Diff'])
         
+        standings = stats['standings']
         for _, row in standings.head(10).iterrows():
             record = f"{row['wins']}-{row['losses']}"
-            if row['ties'] > 0:
+            if row.get('ties', 0) > 0:
                 record += f"-{row['ties']}"
             dashboard_data.append([
                 row['rank'],
                 row['team_name'],
                 record,
                 f"{row['win_pct']:.3f}",
-                row['differential']
+                row.get('differential', 0)
             ])
         
-        dashboard_data.append(['', '', '', '', ''])
-        # dashboard_data.append(['🍀 Luckiest Teams (Most Wins Above Expected)', '', '', '', ''])
-        # dashboard_data.append(['Team', 'Luck Score', '', '', ''])
-        
-        # luck_sorted = luck.sort_values('cumulative_luck', ascending=False)
-        # for _, row in luck_sorted.head(5).iterrows():
-        #     dashboard_data.append([row['team_name'], f"{row['cumulative_luck']:+.2f}", '', '', ''])
-        
-        # dashboard_data.append(['', '', '', '', ''])
-        # dashboard_data.append(['📈 Most Consistent Teams (Low Std Dev)', '', '', '', ''])
-        # dashboard_data.append(['Team', 'Avg PF', 'Std Dev', 'Consistency Score', ''])
-        
-        # consistency_sorted = consistency.sort_values('consistency_score')
-        # for _, row in consistency_sorted.head(5).iterrows():
-        #     dashboard_data.append([
-        #         row['team_name'],
-        #         row['avg_pf'],
-        #         row['std_pf'],
-        #         row['consistency_score'],
-        #         ''
-        #     ])
-        
-        # Write dashboard
+        # Write to sheet
         ws.update('A1', dashboard_data)
         
-        # Format dashboard
-        ws.format('A1', {'textFormat': {'bold': True, 'fontSize': 14}})
-        ws.format('A3', {'textFormat': {'bold': True}})
-        ws.format('A8', {'textFormat': {'bold': True}})
-        ws.format('A14', {'textFormat': {'bold': True}})
+        # Formatting
+        ws.format('A1', {'textFormat': {'bold': True, 'fontSize': 16}})
+        ws.format('A3', {'textFormat': {'bold': True, 'fontSize': 12}})
+        ws.format('A6', {'textFormat': {'bold': True, 'fontSize': 12}})
+        ws.format('A13', {'textFormat': {'bold': True, 'fontSize': 12}})
+        ws.format('A21', {'textFormat': {'bold': True, 'fontSize': 12}})
+        ws.format('A29', {'textFormat': {'bold': True, 'fontSize': 12}})
+        ws.format('A35', {'textFormat': {'bold': True, 'fontSize': 12}})
         
-        print("  ✓ Dashboard created")
+        print("  ✓ Dashboard created with documentation")
+
 
 
 class AuthenticationError(Exception):
