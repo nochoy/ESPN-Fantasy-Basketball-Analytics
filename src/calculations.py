@@ -102,6 +102,10 @@ class FantasyCalculator:
         
         # Sort by week for cumulative calculation
         df = df.sort_values(['team_id', 'week'])
+
+        # Calculate PF and PA rank for each week (helpers)
+        df['pf_rank'] = df.groupby('week')['pf'].rank(ascending=False, method='min')
+        df['pa_rank'] = df.groupby('week')['pa'].rank(ascending=False, method='min')
         
         # Calculate cumulative stats
         df['cumulative_pf'] = df.groupby('team_id')['pf'].cumsum()
@@ -118,18 +122,17 @@ class FantasyCalculator:
         
         # Calculate cumulative rankings by week
         # Rank by cumulative PF (descending) - rank 1 = most points scored
-        df['pf_rank'] = df.groupby('week')['cumulative_pf'].rank(ascending=False, method='min')
+        df['cumulative_pf_rank'] = round(df.groupby('week')['pf_rank'].expanding().mean().reset_index(0, drop=True), 2)
         
         # Rank by cumulative PA (ascending) - rank 1 = most points against
-        df['pa_rank'] = df.groupby('week')['cumulative_pa'].rank(ascending=False, method='min')
+        df['cumulative_pa_rank'] = round(df.groupby('team_id')['pa_rank'].expanding().mean().reset_index(0, drop=True), 2)
         
         # Calculate overall rank by wins, then cumulative PF
-        # First create a composite score (wins * 1000000 + cumulative_pf) for ranking
-        df['rank_score'] = df['wins'] * 1000000 + df['cumulative_pf']
-        df['rank'] = df.groupby('week')['rank_score'].rank(ascending=False, method='min').astype(int)
-        df = df.drop('rank_score', axis=1)
+        df['rank'] = (df.sort_values(['week', 'win_pct', 'cumulative_pf'], ascending=[True, False, False]).groupby('week').cumcount() + 1)
+
+        df = df.drop(['pf_rank', 'pa_rank'], axis=1)
         
-        return df[['week', 'rank', 'team_id', 'team_name', 'wins', 'losses', 'win_pct', 'pf_rank', 'pa_rank', 'cumulative_pf', 'cumulative_pa', 'cumulative_differential']]
+        return df[['week', 'rank', 'team_id', 'team_name', 'wins', 'losses', 'win_pct', 'cumulative_pf_rank', 'cumulative_pa_rank', 'cumulative_pf', 'cumulative_pa', 'cumulative_differential']]
     
     def calculate_toughest_opponent_rank(self) -> pd.DataFrame:
         """
