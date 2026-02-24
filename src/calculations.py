@@ -122,7 +122,7 @@ class FantasyCalculator:
         
         # Calculate cumulative rankings by week
         # Rank by cumulative PF (descending) - rank 1 = most points scored
-        df['cumulative_pf_rank'] = round(df.groupby('week')['pf_rank'].expanding().mean().reset_index(0, drop=True), 2)
+        df['cumulative_pf_rank'] = round(df.groupby('team_id')['pf_rank'].expanding().mean().reset_index(0, drop=True), 2)
         
         # Rank by cumulative PA (ascending) - rank 1 = most points against
         df['cumulative_pa_rank'] = round(df.groupby('team_id')['pa_rank'].expanding().mean().reset_index(0, drop=True), 2)
