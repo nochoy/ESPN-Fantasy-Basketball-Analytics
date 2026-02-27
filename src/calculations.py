@@ -89,7 +89,7 @@ class FantasyCalculator:
 
         df['differential'] = df['pf'] - df['pa']
         
-        return df[['week', 'team_id', 'team_name', 'pf', 'pa', 'pf_rank', 'pa_rank', 'opponent_id', 'differential']]
+        return df[['week', 'team_id', 'team_name', 'pf', 'pa', 'pf_rank', 'pa_rank', 'opponent_id', 'opponent_name', 'differential']]
     
     def calculate_cumulative_stats(self) -> pd.DataFrame:
         """
