@@ -203,7 +203,7 @@ class GoogleSheetsExporter:
         master_weekly_rankings = pd.merge(weekly_and_cumulative_df, injury_weekly, on=['week', 'team_id', 'team_name'], how='outer')
 
         master_weekly_col_order = [
-            'week', 'rank', 'team_id', 'team_name', 'wins', 'losses', 'win_pct', 
+            'week', 'team_name', 'team_id', 'rank', 'wins', 'losses', 'win_pct', 
             'pf', 'pa', 'differential', 'pf_rank', 'pa_rank', 
             'cumulative_pf', 'cumulative_pa', 'cumulative_differential', 'cumulative_pf_rank', 'cumulative_pa_rank', 
             'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
