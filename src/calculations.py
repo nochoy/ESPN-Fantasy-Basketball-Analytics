@@ -338,11 +338,11 @@ class FantasyCalculator:
         
         for team_id, team in self.teams.items():
             # if team_id == 1: print("TEAM DATA: ", team)
-            team_weeks = self.weekly_df[self.weekly_df['team_id'] == team_id]
+            team_matchups = self.weekly_df[self.weekly_df['team_id'] == team_id]
             
-            wins = sum(1 for _, row in team_weeks.iterrows() if row['pf'] > row['pa'])
-            losses = sum(1 for _, row in team_weeks.iterrows() if row['pf'] < row['pa'])
-            ties = sum(1 for _, row in team_weeks.iterrows() if row['pf'] == row['pa'])
+            wins = sum(1 for _, row in team_matchups.iterrows() if row['pf'] > row['pa'])
+            losses = sum(1 for _, row in team_matchups.iterrows() if row['pf'] < row['pa'])
+            ties = sum(1 for _, row in team_matchups.iterrows() if row['pf'] == row['pa'])
             
             standings.append({
                 'team_id': team_id,
@@ -351,18 +351,31 @@ class FantasyCalculator:
                 'losses': losses,
                 'ties': ties,
                 'win_pct': round(wins / (wins + losses + ties), 3) if (wins + losses + ties) > 0 else 0,
-                'total_pf': round(team_weeks['pf'].sum(), 2),
-                'total_pa': round(team_weeks['pa'].sum(), 2),
-                'avg_pf': round(team_weeks['pf'].mean(), 2),
-                'avg_pa': round(team_weeks['pa'].mean(), 2),
-                'differential': round(team_weeks['pf'].sum() - team_weeks['pa'].sum(), 2),
+                'total_pf': round(team_matchups['pf'].sum(), 2),
+                'total_pa': round(team_matchups['pa'].sum(), 2),
+                'avg_pf': round(team_matchups['pf'].mean(), 2),
+                'avg_pa': round(team_matchups['pa'].mean(), 2),
+                'differential': round(team_matchups['pf'].sum() - team_matchups['pa'].sum(), 2),
             })
         
         df = pd.DataFrame(standings)
         df = df.sort_values(['wins', 'total_pf'], ascending=[False, False])
         df['rank'] = range(1, len(df) + 1)
         df['avg_differential'] = round(df['differential'] / self.max_week, 2)
-        
+
+        final_ranks = df.set_index('team_id')['rank'].to_dict()
+
+        avg_opponent_ranks = []
+        for _, row in df.iterrows():
+            team_id = row['team_id']
+            team_matchups = self.weekly_df[self.weekly_df['team_id'] == team_id]
+            opponent_ids = [oid for oid in team_matchups['opponent_id'] if oid is not None]
+            opponent_ranks = [final_ranks.get(oid, 0) for oid in opponent_ids]
+            avg_rank = sum(opponent_ranks) / len(opponent_ranks) if opponent_ranks else 0
+            avg_opponent_ranks.append(round(avg_rank, 2))
+
+        df['avg_opponent_rank'] = avg_opponent_ranks
+
         return df
     
     def generate_all_stats(self) -> Dict[str, pd.DataFrame]:
