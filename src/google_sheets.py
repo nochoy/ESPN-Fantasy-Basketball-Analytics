@@ -173,14 +173,14 @@ class GoogleSheetsExporter:
             'total_lost_points': 'sum',
         }).reset_index()
 
-        toughness_standings = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_opp_rank'].last().sort_values().reset_index()
+        toughness_standings = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_pa_rank'].last().sort_values().reset_index()
 
         standings_and_injury_df = pd.merge(standings, injury_standings, on=['team_id', 'team_name'], how='outer')
         master_standings = pd.merge(standings_and_injury_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
 
         master_standings_col_order = [
             'team_name', 'team_id', 'rank', 'wins', 'losses', 'ties', 'win_pct', 
-            'total_pf', 'total_pa', 'differential', 'cumulative_avg_opp_rank', 
+            'total_pf', 'total_pa', 'differential', 'avg_opponent_rank', 'cumulative_avg_pa_rank', 
             'avg_pf', 'avg_pa', 'avg_differential',
             'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
             'lost_points_injury', 'lost_points_ir', 'total_lost_points', 
@@ -191,7 +191,7 @@ class GoogleSheetsExporter:
         master_standings = master_standings[master_standings_col_order].sort_values('rank')
 
         ws_standings = self.create_worksheet('Standings', len(master_standings), len(master_standings_col_order))
-        self.write_dataframe(ws_standings, master_standings)
+        self.write_dataframe(ws_standings, master_standings, start_cell='A2')
         print("  ✓ Exported: Standings")
         
         # 2. Weekly Rankings (weekly ranks + cumulative stats + injury stats + toughness stats)

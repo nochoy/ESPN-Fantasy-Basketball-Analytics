@@ -133,7 +133,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     # print("INJURY STSA:\n", stats['injury_stats'][stats['injury_stats']['week'] == 1].to_string())
 
     print("\n💪 Toughest Schedules (Hardest Opponents):")
-    toughness_summary = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_opp_rank'].last().sort_values().reset_index()
+    toughness_summary = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_pa_rank'].last().sort_values().reset_index()
     print("TOUGHNESS SUMMARY: (lower = tougher) \n", toughness_summary.to_string(index=False))
     print("toughness stats: \n", stats['toughest_opponents'].sort_values(['week', 'opponent_pf_rank']).head(24).to_string(index=False))
 
