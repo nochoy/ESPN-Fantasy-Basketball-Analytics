@@ -5,6 +5,7 @@ Handles exporting fantasy data to Google Sheets
 
 import os
 import pandas as pd
+from datetime import date
 from typing import Dict, Optional
 import gspread
 from gspread.utils import ValueRenderOption
@@ -222,98 +223,130 @@ class GoogleSheetsExporter:
     
     def create_summary_dashboard(self, stats: Dict[str, pd.DataFrame]):
         """
-        Create a comprehensive dashboard with overview and documentation
-        for first-time users of the spreadsheet.
+        Create a comprehensive dashboard with overview, changelog, 
+        features list, and detailed metric documentation.
         """
         print("\nCreating Summary Dashboard...")
         
         try:
+            self.get_sheet()
             ws = self.sheet.worksheet('Dashboard')
             ws.clear()
         except gspread.WorksheetNotFound:
-            ws = self.sheet.add_worksheet('Dashboard', rows=100, cols=20)
+            ws = self.sheet.add_worksheet('Dashboard', rows=150, cols=20)
         
         dashboard_data = []
+        version = 1.0
+        today = date.today()
         
         # Title
         dashboard_data.append(['🏀 ESPN Fantasy Basketball Analytics', '', '', '', ''])
         dashboard_data.append(['', '', '', '', ''])
         
-        # Welcome message
+        # Welcome
         dashboard_data.append(['📖 WELCOME', '', '', '', ''])
-        dashboard_data.append(['This dashboard provides an overview of your fantasy league data and explains how metrics are calculated.', '', '', '', ''])
-        dashboard_data.append(['', '', '', '', ''])
-        
-        # Sheet Overview
+        dashboard_data.append(['This dashboard provides an overview of this spreadsheet to help viewers quickly understand how to read \nand interact with this spreadsheet and explains how metrics are calculated.', '', '', '', ''])
+        dashboard_data.append(['This sheet displays results (W/L, ranks), tracks performance (PF/PA, differential, cumulative production), \nand provides context (strength of schedule and injury impact)', '', '', '', ''])
+        dashboard_data.append(['This spreadsheet is divided into 2 sheets: Standings and Weekly Rankings', '', '', '', ''])
+
+        # SHEET OVERVIEW
         dashboard_data.append(['📊 SHEET OVERVIEW', '', '', '', ''])
-        dashboard_data.append(['', '', '', '', ''])
         dashboard_data.append(['Sheet Name', 'Description', '', '', ''])
-        dashboard_data.append(['Standings', 'Current league standings with wins/losses, points for/against, and differentials. Sorted by rank.', '', '', ''])
-        dashboard_data.append(['Weekly Rankings', 'Week-by-week performance for each team including PF/PA rankings. Shows how your team performed each week.', '', '', ''])
+        dashboard_data.append(['Standings', 'Current league standings with season-long aggregated stats.', '', '', ''])
+        dashboard_data.append(['Weekly Rankings', 'Week-by-week breakdown for each team', '', '', ''])
         dashboard_data.append(['', '', '', '', ''])
         
-        # Key Metrics Explained
+        # CHANGE LOG
+        dashboard_data.append(['📝 CHANGE LOG', '', '', '', ''])
+        dashboard_data.append(['Date', 'Version', 'Changes', '', ''])
+        dashboard_data.append([str(today), version, 'Initial release with standings, weekly rankings, injury stats, and toughest opponents', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # FEATURES TO ADD
+        dashboard_data.append(['🚀 FEATURES TO ADD', '', '', '', ''])
+        dashboard_data.append(['Feature', 'Description', 'Status', '', ''])
+        dashboard_data.append(['Luck Factor', 'Compare actual wins to expected wins based on weekly performance', 'In Progress', '', ''])
+        dashboard_data.append(['Consistency Score', 'Measure team scoring consistency (lower std dev = more consistent)', 'In Progress', '', ''])
+        dashboard_data.append(['Player Level Analysis', 'Track individual player performance and consistency', 'Planned', '', ''])
+        dashboard_data.append(['Playoff Predictions', 'Project playoff matchups and outcomes', 'Planned', '', ''])
+        dashboard_data.append(['Trade Analysis', 'Evaluate potential trades based on team needs', 'Planned', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+    
+        
+        # KEY METRICS EXPLAINED
         dashboard_data.append(['🔍 KEY METRICS EXPLAINED', '', '', '', ''])
         dashboard_data.append(['', '', '', '', ''])
         
-        # Standings columns
-        dashboard_data.append(['STANDINGS COLUMNS:', '', '', '', ''])
+        # Standings metrics
+        dashboard_data.append(['STANDINGS METRICS:', '', '', '', ''])
         dashboard_data.append(['Column', 'Description', 'How It\'s Calculated', '', ''])
         dashboard_data.append(['rank', 'Current standing in the league', 'Based on wins, then total points for (PF)', '', ''])
         dashboard_data.append(['win_pct', 'Win percentage', 'wins / (wins + losses)', '', ''])
         dashboard_data.append(['total_pf', 'Total Points For', 'Sum of all fantasy points scored across all weeks', '', ''])
         dashboard_data.append(['total_pa', 'Total Points Against', 'Sum of all fantasy points scored against you', '', ''])
         dashboard_data.append(['differential', 'Point Differential', 'total_pf - total_pa (positive = scoring more than allowing)', '', ''])
-        dashboard_data.append(['avg_differential', 'Average Weekly Differential', 'differential / number of weeks played', '', ''])
+        dashboard_data.append(['avg_opponent_rank', 'Avg Opponent Rank', 'Average final rank of all opponents faced (lower = tougher schedule)', '', ''])
         dashboard_data.append(['', '', '', '', ''])
         
-        # Weekly Rankings columns
-        dashboard_data.append(['WEEKLY RANKINGS COLUMNS:', '', '', '', ''])
+        # Weekly Rankings metrics
+        dashboard_data.append(['WEEKLY RANKINGS METRICS:', '', '', '', ''])
         dashboard_data.append(['Column', 'Description', 'How It\'s Calculated', '', ''])
         dashboard_data.append(['pf', 'Points For (weekly)', 'Fantasy points your team scored that week', '', ''])
         dashboard_data.append(['pa', 'Points Against (weekly)', 'Fantasy points your opponent scored that week', '', ''])
         dashboard_data.append(['pf_rank', 'Points For Rank', 'Rank among all teams by PF (1 = highest scorer that week)', '', ''])
         dashboard_data.append(['pa_rank', 'Points Against Rank', 'Rank among all teams by PA (1 = most points allowed)', '', ''])
+        dashboard_data.append(['cumulative_pa_rank', 'Cumulative PA Rank', 'Running average of PA ranks through current week', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Injury Stats metrics
+        dashboard_data.append(['INJURY STATS METRICS:', '', '', '', ''])
+        dashboard_data.append(['Column', 'Description', 'How It\'s Calculated', '', ''])
+        dashboard_data.append(['games_missed_injury', 'Games Missed (Injury)', 'Active roster players who missed games due to injury (DTD/OUT/INJ)', '', ''])
+        dashboard_data.append(['games_missed_ir', 'Games Missed (IR)', 'Players on IR slot who missed games', '', ''])
+        dashboard_data.append(['lost_points_injury', 'Lost Points (Injury)', 'Fantasy points lost from injured active roster players', '', ''])
+        dashboard_data.append(['lost_points_ir', 'Lost Points (IR)', 'Fantasy points lost from players on IR', '', ''])
+        dashboard_data.append(['', '', '', '', ''])
+        
+        # Toughest Opponents metrics
+        dashboard_data.append(['TOUGHEST OPPONENTS METRICS:', '', '', '', ''])
+        dashboard_data.append(['Column', 'Description', 'How It\'s Calculated', '', ''])
+        dashboard_data.append(['opponent_pf_rank', 'Opponent PF Rank', 'Your opponent\'s Points For rank that week (1 = they scored most)', '', ''])
+        dashboard_data.append(['cumulative_avg_opp_rank', 'Cumulative Avg Opponent Rank', 'Average of opponent PF ranks faced through current week', '', ''])
         dashboard_data.append(['', '', '', '', ''])
         
         # Tips
         dashboard_data.append(['💡 TIPS FOR READING:', '', '', '', ''])
         dashboard_data.append(['• Lower rank numbers are better (1st place is rank 1)', '', '', '', ''])
+        dashboard_data.append(['• Lower avg_opponent_rank = faced tougher opponents (faced more top-ranked teams)', '', '', '', ''])
         dashboard_data.append(['• Positive differential means you\'re outscoring your opponents on average', '', '', '', ''])
-        dashboard_data.append(['• Check Weekly Rankings to see consistency week-to-week', '', '', '', ''])
         dashboard_data.append(['', '', '', '', ''])
         
         # Current Standings Preview
         dashboard_data.append(['📋 CURRENT STANDINGS PREVIEW', '', '', '', ''])
-        dashboard_data.append(['Rank', 'Team', 'Record', 'Win %', 'Point Diff'])
+        dashboard_data.append(['Rank', 'Team', 'Record', 'Win %', 'Avg Opp Rank'])
         
-        standings = stats['standings']
-        for _, row in standings.head(10).iterrows():
-            record = f"{row['wins']}-{row['losses']}"
-            if row.get('ties', 0) > 0:
-                record += f"-{row['ties']}"
-            dashboard_data.append([
-                row['rank'],
-                row['team_name'],
-                record,
-                f"{row['win_pct']:.3f}",
-                row.get('differential', 0)
-            ])
+        # standings = stats['standings']
+        # for _, row in standings.head(12).iterrows():
+        #     record = f"{row['wins']}-{row['losses']}"
+        #     if row.get('ties', 0) > 0:
+        #         record += f"-{row['ties']}"
+        #     dashboard_data.append([
+        #         row['rank'],
+        #         row['team_name'],
+        #         record,
+        #         f"{row['win_pct']:.3f}",
+        #         row.get('avg_opponent_rank', 'N/A')
+        #     ])
         
         # Write to sheet
         ws.update('A1', dashboard_data)
         
-        # Formatting
-        ws.format('A1', {'textFormat': {'bold': True, 'fontSize': 16}})
-        ws.format('A3', {'textFormat': {'bold': True, 'fontSize': 12}})
-        ws.format('A6', {'textFormat': {'bold': True, 'fontSize': 12}})
-        ws.format('A13', {'textFormat': {'bold': True, 'fontSize': 12}})
-        ws.format('A21', {'textFormat': {'bold': True, 'fontSize': 12}})
-        ws.format('A29', {'textFormat': {'bold': True, 'fontSize': 12}})
-        ws.format('A35', {'textFormat': {'bold': True, 'fontSize': 12}})
+        # Format headers
+        header_rows = ['A1', 'A6', 'A11', 'A19', 'A22', 'A29', 'A38', 'A48', 'A58']
+        for cell in header_rows:
+            ws.format(cell, {'textFormat': {'bold': True, 'fontSize': 12}})
         
-        print("  ✓ Dashboard created with documentation")
-
+        print("  ✓ Dashboard created with changelog, features, and documentation")
 
 
 class AuthenticationError(Exception):
