@@ -174,14 +174,14 @@ class GoogleSheetsExporter:
             'total_lost_points': 'sum',
         }).reset_index()
 
-        toughness_standings = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_pa_rank'].last().sort_values().reset_index()
+        toughness_standings = stats['cumulative_stats'].groupby(['team_name', 'team_id'])['cumulative_pa_rank'].last().sort_values().reset_index()
 
         standings_and_injury_df = pd.merge(standings, injury_standings, on=['team_id', 'team_name'], how='outer')
         master_standings = pd.merge(standings_and_injury_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
 
         master_standings_col_order = [
             'team_name', 'team_id', 'rank', 'wins', 'losses', 'ties', 'win_pct', 
-            'total_pf', 'total_pa', 'differential', 'avg_opponent_rank', 'cumulative_avg_pa_rank', 
+            'total_pf', 'total_pa', 'differential', 'avg_opponent_rank', 'cumulative_pa_rank', 
             'avg_pf', 'avg_pa', 'avg_differential',
             'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
             'lost_points_injury', 'lost_points_ir', 'total_lost_points', 
@@ -284,7 +284,7 @@ class GoogleSheetsExporter:
         left_data.append(['total_pa', 'Total points opponents\' scored against', '', '', '', 'Sum of all fantasy points scored against you', '', ''])
         left_data.append(['differential', 'Point differential', '', '', '', 'total_pf - total_pa (positive = scoring more than allowing)', '', ''])
         left_data.append(['avg_opponent_rank', 'Average opponent rank in standings', '', '', '', 'Average rank of opponents faced, based on latest standings (lower = tougher schedule)', '', ''])
-        left_data.append(['cumulative_avg_pa_rank/cumulative_pa_rank', 'Running average of pa rank', '', '', '', 'Running average of opponent\'s PF rank for each week (lower = tougher schedule, stronger indicator of Strength of Schedule (Sos))', '', ''])
+        left_data.append(['cumulative_pa_rank', 'Running average of pa rank', '', '', '', 'Running average of opponent\'s PF rank for each week (lower = tougher schedule, stronger indicator of Strength of Schedule (Sos))', '', ''])
         left_data.append(['cumulative_pf_rank', 'Running average of pf rank', '', '', '', 'Running average of PF rank for each week', '', ''])
         left_data.append(['games_missed_injury', 'Number of games missed due to injury, NOT including IR', '', '', '', 'Checks if player had scheduled opponent + scored 0 FPTS + recorded no stats (counts DNPs) + not on IR', '', ''])
         left_data.append(['games_missed_r', 'Number of games missed due to injury ON IR', '', '', '', 'Checks if player had scheduled opponent + scored 0 FPTS + recorded no stats (counts DNPs) + on IR', '', ''])
@@ -306,7 +306,7 @@ class GoogleSheetsExporter:
         left_data.append(['- Recommend using "Group By Week" table view for Weekly Rankings ', '', '', '', '', '', ''])
         left_data.append(['- Create your own private table view to sort/group data in whatever way you want, which does not affect the sheet or other viewers at all', '', '', '', '', '', ''])
         left_data.append(['- Lower rank numbers indicate stronger/higher stats (1st place is rank 1)', '', '', '', '', '', ''])
-        left_data.append(['- SoS - cumulative_avg_pa_rank is a strong indicator of schedule difficulty as it provides week-by-week context', '', '', '', '', '', ''])
+        left_data.append(['- SoS - cumulative_pa_rank is a strong indicator of schedule difficulty as it includes week-by-week context', '', '', '', '', '', ''])
         left_data.append(['- Color scales are added for context, making it easier to compare stats and view change over the course of the season. Green indicates favorable data for the player (higher PF, lower PA, less injuries, lower SoS, etc.)', '', '', '', '', '', ''])
         left_data.append(['- Color scales are independent for each week, except for rank, pf_rank, pa_rank, cumulative_pf_rank, cumulative_pa_rank (color scale used for entire col)', '', '', '', '', '', ''])
         left_data.append(['- Bolded stats indicate column max', '', '', '', '', '', ''])

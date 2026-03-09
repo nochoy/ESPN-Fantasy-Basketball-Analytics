@@ -69,8 +69,6 @@ class FantasyCalculator:
         # Sort by week and team
         self.weekly_df = self.weekly_df.sort_values(['week', 'team_id'])
         print("**************self.weekly_df dataframe: \n", self.weekly_df.head(12))
-        print(len(self.weekly_df[self.weekly_df['is_home'] == False]))
-        print(len(self.weekly_df[self.weekly_df['is_home'] == True]))
     
     def calculate_weekly_pf_pa_rankings(self) -> pd.DataFrame:
         """
@@ -133,44 +131,6 @@ class FantasyCalculator:
         df = df.drop(['pf_rank', 'pa_rank'], axis=1)
         
         return df[['week', 'rank', 'team_id', 'team_name', 'wins', 'losses', 'win_pct', 'cumulative_pf_rank', 'cumulative_pa_rank', 'cumulative_pf', 'cumulative_pa', 'cumulative_differential']]
-    
-    def calculate_toughest_opponent_rank(self) -> pd.DataFrame:
-        """
-        Calculate toughest opponent rank based on weekly PF ranks
-        - For each matchup, get opponent's PF rank that week
-        - Average across all weeks for season toughness
-        
-        Returns:
-            DataFrame with opponent toughness metrics
-        """
-        df = self.calculate_weekly_pf_pa_rankings()
-        
-        # Create opponent's PF rank lookup
-        opponent_ranks = df[['week', 'team_id', 'pf_rank']].rename(
-            columns={'team_id': 'opponent_id', 'pf_rank': 'opponent_pf_rank'}
-        )
-        # print("ooponent_ranks: \n", opponent_ranks.to_string())
-        
-        # Merge to get opponent's rank for each matchup
-        df_with_opp = df.merge(
-            opponent_ranks,
-            left_on=['week', 'opponent_id'],
-            right_on=['week', 'opponent_id'],
-            how='left'
-        )
-        
-        # Group by team and week to get opponent rank
-        result = df_with_opp.groupby(['week', 'team_id', 'team_name']).agg({
-            'opponent_pf_rank': 'first',
-            'pf': 'first',
-            'pa': 'first'
-        }).reset_index()
-        
-        # Calculate cumulative average opponent rank (lower is tougher)
-        result = result.sort_values(['team_id', 'week'])
-        result['cumulative_avg_pa_rank'] = round(result.groupby('team_id')['opponent_pf_rank'].expanding().mean().reset_index(0, drop=True), 2)
-        
-        return result[['week', 'team_id', 'team_name', 'opponent_pf_rank', 'cumulative_avg_pa_rank', 'pf', 'pa']]
     
     def calculate_injury_stats(self) -> pd.DataFrame:
         """
@@ -252,81 +212,6 @@ class FantasyCalculator:
         
         return df
     
-    def calculate_luck_factor(self) -> pd.DataFrame:
-        """
-        Calculate luck factor - compare actual wins to expected wins
-        Expected wins = probability of beating each other team that week
-        
-        Returns:
-            DataFrame with luck metrics
-        """
-        df = self.weekly_df.copy()
-        luck_data = []
-        
-        for week in range(1, self.max_week + 1):
-            week_df = df[df['week'] == week]
-            
-            for _, team_row in week_df.iterrows():
-                team_id = team_row['team_id']
-                team_pf = team_row['pf']
-                opponent_id = team_row['opponent_id']
-                opponent_pf = team_row['pa']
-                
-                # Count how many teams this team would have beaten
-                all_scores = week_df['pf'].values
-                teams_beaten = sum(1 for score in all_scores if team_pf > score)
-                teams_tied = sum(1 for score in all_scores if team_pf == score) - 1  # Exclude self
-                
-                # Expected wins = teams beaten / (total teams - 1)
-                total_teams = len(self.team_ids)
-                expected_wins = (teams_beaten + 0.5 * teams_tied) / (total_teams - 1)
-                
-                # Actual result
-                actual_win = 1 if team_pf > opponent_pf else (0.5 if team_pf == opponent_pf else 0)
-                
-                luck_data.append({
-                    'week': week,
-                    'team_id': team_id,
-                    'team_name': team_row['team_name'],
-                    'pf': team_pf,
-                    'teams_beaten': teams_beaten,
-                    'expected_wins': round(expected_wins, 3),
-                    'actual_result': actual_win,
-                    'luck_factor': round(actual_win - expected_wins, 3)
-                })
-        
-        luck_df = pd.DataFrame(luck_data)
-        
-        # Calculate cumulative luck
-        if not luck_df.empty:
-            luck_df = luck_df.sort_values(['team_id', 'week'])
-            luck_df['cumulative_expected_wins'] = luck_df.groupby('team_id')['expected_wins'].cumsum()
-            luck_df['cumulative_actual_wins'] = luck_df.groupby('team_id')['actual_result'].cumsum()
-            luck_df['cumulative_luck'] = luck_df['cumulative_actual_wins'] - luck_df['cumulative_expected_wins']
-        
-        return luck_df
-    
-    def calculate_consistency(self) -> pd.DataFrame:
-        """
-        Calculate consistency score (lower std dev = more consistent)
-        
-        Returns:
-            DataFrame with consistency metrics
-        """
-        df = self.weekly_df.copy()
-        
-        consistency = df.groupby(['team_id', 'team_name']).agg({
-            'pf': ['mean', 'std', 'min', 'max', 'count']
-        }).reset_index()
-        
-        consistency.columns = ['team_id', 'team_name', 'avg_pf', 'std_pf', 'min_pf', 'max_pf', 'games_played']
-        
-        # Calculate coefficient of variation (std/mean) - lower is more consistent
-        consistency['consistency_score'] = consistency['std_pf'] / consistency['avg_pf']
-        consistency['range'] = consistency['max_pf'] - consistency['min_pf']
-        
-        return consistency.round(2)
-    
     def get_standings(self) -> pd.DataFrame:
         """
         Get current standings with calculated stats
@@ -386,15 +271,15 @@ class FantasyCalculator:
             Dictionary of DataFrames with all calculated stats
         """
         print("Calculating all statistics...")
+        cumulative_stats = self.calculate_cumulative_stats()
+        toughness_summary = cumulative_stats.groupby(['team_name', 'team_id'])['cumulative_pa_rank'].last().sort_values().reset_index()
         
         stats = {
             'standings': self.get_standings(),
             'weekly_rankings': self.calculate_weekly_pf_pa_rankings(),
-            'cumulative_stats': self.calculate_cumulative_stats(),
-            'toughest_opponents': self.calculate_toughest_opponent_rank(),
+            'cumulative_stats': cumulative_stats,
+            'toughness_summary': toughness_summary,
             'injury_stats': self.calculate_injury_stats(),
-            # 'luck_factor': self.calculate_luck_factor(),
-            # 'consistency': self.calculate_consistency()
         }
         
         print("✓ All statistics calculated")

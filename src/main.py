@@ -87,6 +87,9 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     
     print("\n🏆 Current Standings:")
     print(stats['standings'].to_string(index=False))
+
+    print("\n💪 Strength of Schedule (lower = tougher):")
+    print(stats['toughness_summary'].to_string(index=False))
     
     print("\n📊 Weekly Rankings (PF/PA by Week):")
     print(stats['weekly_rankings'].head(12).to_string(index=False))
@@ -132,21 +135,6 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     # print("INJURY STSA:\n", stats['injury_stats'][stats['injury_stats']['team_id'] == 1].to_string())
     # print("INJURY STSA:\n", stats['injury_stats'][stats['injury_stats']['week'] == 1].to_string())
 
-    print("\n💪 Toughest Schedules (Hardest Opponents):")
-    toughness_summary = stats['toughest_opponents'].groupby(['team_name', 'team_id'])['cumulative_avg_pa_rank'].last().sort_values().reset_index()
-    print("TOUGHNESS SUMMARY: (lower = tougher) \n", toughness_summary.to_string(index=False))
-    print("toughness stats: \n", stats['toughest_opponents'].sort_values(['week', 'opponent_pf_rank']).head(24).to_string(index=False))
-
-
-
-    # print("\n📉 Consistency Rankings (Most Consistent):")
-    # consistency_summary = stats['consistency'][['team_name', 'avg_pf', 'std_pf', 'consistency_score']].head()
-    # print(consistency_summary.to_string(index=False))
-    
-    # print("\n🍀 Luck Factor (Luckiest Teams):")
-    # luck_summary = stats['luck_factor'].groupby('team_name')['cumulative_luck'].last().sort_values(ascending=False).head()
-    # for team, luck in luck_summary.items():
-    #     print(f"  {team}: {luck:+.2f}")
     
     
     # Step 5: Export to Google Sheets
