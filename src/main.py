@@ -60,7 +60,6 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     print("\n👥 Fetching team data...")
     teams = client.get_teams()
     print(f"  ✓ Loaded {len(teams)} teams")
-    # print("teams: ", teams)
 
     # Step 3: Get matchup data
     print("\n📊 Fetching matchup data...")
@@ -71,9 +70,6 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
 
     print(f"  ✓ Loaded {len(matchup_summaries)} total matchup summaries")
     print(f"  ✓ Loaded {len(matchups)} total matchups")
-    # print("matchup_summary[0]: ", (matchup_summaries[0]))
-    # print("matchup[0]: ", (matchups[0]))
-    # print("box scores: ", matchups)
     
     # Step 4: Calculate all statistics
     print("\n🧮 Calculating statistics...")
@@ -91,20 +87,14 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     print("\n💪 Strength of Schedule (lower = tougher):")
     print(stats['toughness_summary'].to_string(index=False))
     
-    print("\n📊 Weekly Rankings (PF/PA by Week):")
-    print(stats['weekly_rankings'].head(12).to_string(index=False))
+    print("\n📊 Weekly Rankings (Week 1 only):")
+    print(stats['weekly_rankings'].head(len(teams)).to_string(index=False))
     
-    print("\n📈 Cumulative Stats:")
-    print(stats['cumulative_stats'].head(17).to_string(index=False))
+    print("\n📈 Cumulative Stats: (First team only)")
+    print(stats['cumulative_stats'].head(end_week).to_string(index=False))
     
     print("\n🤕 Injury Stats Summary:")
     injury_summary = stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
-        # 'cumulative_games_missed_injury': 'last',
-        # 'cumulative_games_missed_ir': 'last',
-        # 'cumulative_total_games_missed': 'last',
-        # 'cumulative_lost_points_injury': 'last',
-        # 'cumulative_lost_points_ir': 'last',
-        # 'cumulative_total_lost_points': 'last',
         'avg_games_missed_injury': 'last',
         'avg_games_missed_ir': 'last',
         'avg_total_games_missed': 'last',
@@ -119,23 +109,19 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
         'total_lost_points': 'sum',
     }).reset_index()
     injury_summary = injury_summary.sort_values('total_games_missed', ascending=False)
-    print("TOTAL INJURY STATS:")
+    print("Total Injury Stats:")
     print(injury_summary[['team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].to_string(index=False))
-    print("FINAL AVERAGE INJUSRY STATS:")
+    print("Average Injury Stats:")
     print(injury_summary[['team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].to_string(index=False))
     
     injury_weekly = stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
-    print("\n\nWEEKLY TOTALS INJURY STATS: \n")
-    print(injury_weekly[['week', 'team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].head(24).to_string(index=False))
-    print("CUMULATIVE AVERAGE INJURY STATS:\n")
-    print(injury_weekly[['week', 'team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].head(24).to_string(index=False))
-    print("CUMULATIVE INJURY STATS:\n")
-    print(injury_weekly[['week', 'team_id', 'team_name', 'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points']].head(24).to_string(index=False))
-    # print(injury_summary.to_string(index=False))
-    # print("INJURY STSA:\n", stats['injury_stats'][stats['injury_stats']['team_id'] == 1].to_string())
-    # print("INJURY STSA:\n", stats['injury_stats'][stats['injury_stats']['week'] == 1].to_string())
+    print("\n\nWeekly Injury Stats:")
+    print(injury_weekly[['week', 'team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].head(len(teams)).to_string(index=False))
+    # print("Cumulative Average Injury Stats:")
+    # print(injury_weekly[['week', 'team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].head(len(teams)).to_string(index=False))
+    print("Cumulative Injury Stats:")
+    print(injury_weekly[['week', 'team_id', 'team_name', 'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points']].head(len(teams)).to_string(index=False))
 
-    
     
     # Step 5: Export to Google Sheets
     if not skip_export:

@@ -152,8 +152,6 @@ class FantasyCalculator:
                 lineup = team_data['lineup']
                 team_id = team_data['id']
                 team_name = team_data['name']
-                # print("week: ", week, " - side: ", side, " - team_name: ", team_name)
-
                 games_missed_injury = 0
                 games_missed_ir = 0
                 lost_points_injury = 0
@@ -180,11 +178,7 @@ class FantasyCalculator:
                     'total_lost_points': round(lost_points_injury + lost_points_ir, 2),
                 })
 
-        df = pd.DataFrame(injury_data)
-        # print("RAW INJURY STATS: \n", df.head(12).to_string(index=False))
-
-        df = df.groupby(['week', 'team_id', 'team_name']).sum().reset_index()
-        # print("GROUPED INJKURY STATS: \n", df.head(24).to_string(index=False))
+        df = pd.DataFrame(injury_data).groupby(['week', 'team_id', 'team_name']).sum().reset_index()
         
         # Calculate cumulative stats - broken down by injury vs IR
         if not df.empty:
@@ -207,9 +201,7 @@ class FantasyCalculator:
             df['avg_lost_points_injury'] = (df['cumulative_lost_points_injury'] / df['week']).round(2)
             df['avg_lost_points_ir'] = (df['cumulative_lost_points_ir'] / df['week']).round(2)
             df['avg_total_lost_points'] = (df['cumulative_total_lost_points'] / df['week']).round(2)
-        
-        # print("RAW INJURY STATS AFTER CUMULATIVE + AVERAGE CALCULATION:\n", df.head(24).to_string(index=False))
-        
+                
         return df
     
     def get_standings(self) -> pd.DataFrame:
@@ -271,14 +263,24 @@ class FantasyCalculator:
             Dictionary of DataFrames with all calculated stats
         """
         print("Calculating all statistics...")
+
+        standings = self.get_standings()
         cumulative_stats = self.calculate_cumulative_stats()
         toughness_summary = cumulative_stats.groupby(['team_name', 'team_id'])['cumulative_pa_rank'].last().sort_values().reset_index()
+
+        toughness_summary = toughness_summary.merge(
+            standings[['team_id', 'team_name', 'avg_opponent_rank', 'rank']], 
+            on=['team_id', 'team_name'], 
+            how='left'
+        )
+        
+        toughness_col_order = ['team_id', 'team_name', 'rank', 'avg_opponent_rank', 'cumulative_pa_rank']
         
         stats = {
-            'standings': self.get_standings(),
+            'standings': standings,
             'weekly_rankings': self.calculate_weekly_pf_pa_rankings(),
             'cumulative_stats': cumulative_stats,
-            'toughness_summary': toughness_summary,
+            'toughness_summary': toughness_summary[toughness_col_order],
             'injury_stats': self.calculate_injury_stats(),
         }
         
