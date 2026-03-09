@@ -61,7 +61,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     teams = client.get_teams()
     print(f"  ✓ Loaded {len(teams)} teams")
     # print("teams: ", teams)
-    
+
     # Step 3: Get matchup data
     print("\n📊 Fetching matchup data...")
     end_week = weeks or league_info['current_week']
@@ -148,17 +148,15 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     # for team, luck in luck_summary.items():
     #     print(f"  {team}: {luck:+.2f}")
     
-
-    # return
     
     # Step 5: Export to Google Sheets
     if not skip_export:
         print("\n📤 Exporting to Google Sheets...")
         try:
-            print("***************main sheet_name: ", sheet_name)
             exporter = GoogleSheetsExporter(sheet_name=sheet_name)
             exporter.export_all_stats(stats)
-            exporter.create_summary_dashboard(stats)
+            # stats = {}
+            exporter.create_overview(stats)
         except Exception as e:
             print(f"❌ Error exporting to Google Sheets: {e}")
             print("\nMake sure your Google credentials are set up correctly:")

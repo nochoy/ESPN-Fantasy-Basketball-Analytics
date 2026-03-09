@@ -221,19 +221,18 @@ class GoogleSheetsExporter:
         
         print(f"\n✓ All data exported to: {self.sheet.url}")
     
-    def create_summary_dashboard(self, stats: Dict[str, pd.DataFrame]):
+    def create_overview(self, stats: Dict[str, pd.DataFrame]):
         """
-        Create a comprehensive dashboard with overview, changelog, 
-        features list, and detailed metric documentation.
+        Create a comprehensive overview with an introduction, changelog, 
+        features to add, tips for analyzing, and detailed metric documentation.
         """
-        print("\nCreating Summary Dashboard...")
         
         try:
             self.get_sheet()
-            ws = self.sheet.worksheet('Dashboard')
+            ws = self.sheet.worksheet('Overview')
             ws.clear()
         except gspread.WorksheetNotFound:
-            ws = self.sheet.add_worksheet('Dashboard', rows=50, cols=13)
+            ws = self.sheet.add_worksheet('Overview', rows=50, cols=13)
                 
         left_data = []      # columns A-G
         right_data = []     # columns H-J
@@ -244,9 +243,9 @@ class GoogleSheetsExporter:
         left_data.append(['📖 WELCOME', '', '', '', '', '', ''])
         left_data.append(['This dashboard provides an overview of this spreadsheet to help viewers quickly understand how to read'])
         left_data.append(['and interact with this spreadsheet and explains how metrics are calculated.'])
-        left_data.append(['This sheet displays results (W/L, ranks), tracks performance (PF/PA, differential, cumulative production),'])
+        left_data.append(['This doc displays results (W/L, ranks), tracks performance (PF/PA, differential, cumulative production),'])
         left_data.append(['and provides context (strength of schedule and injury impact.'])
-        left_data.append(['This spreadsheet is divided into 2 sheets: Standings and Weekly Rankings', '', '', '', ''])
+        left_data.append(['This spreadsheet is divided into 2 pages: Standings and Weekly Rankings', '', '', '', ''])
 
         left_data.append(['', '', '', '', '', '', ''])
         # SHEET OVERVIEW
@@ -262,7 +261,7 @@ class GoogleSheetsExporter:
         right_data.append(['📝 CHANGE LOG', '', '', '', ''])
         right_data.append(['Date', 'Version', 'Changes', '', ''])
         right_data.append(['2026-02-27', 0.1, 'Finished adding conditional formatting rules', '', ''])
-        right_data.append([str(today), str(version), 'Initial release with Dashboard, Standings, and Weekly Rankings pages', '', ''])
+        right_data.append([str(today), str(version), 'Initial release with Overview, Standings, and Weekly Rankings pages', '', ''])
         right_data.append(['', '', '', '', '', '', ''])
         
         # FEATURES TO ADD
@@ -329,7 +328,7 @@ class GoogleSheetsExporter:
         for cell in bolded_cells:
             ws.format(cell, {'textFormat': {'bold': True}})
         
-        print("  ✓ Dashboard created with changelog, features, and documentation")
+        print("  ✓ Overview page created with changelog, features, and documentation")
 
 
 class AuthenticationError(Exception):
