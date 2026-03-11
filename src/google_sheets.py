@@ -167,10 +167,12 @@ class GoogleSheetsExporter:
             'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points'
         ]
 
+        # Create Standings page and export 
         master_standings = master_standings[master_standings_col_order].sort_values('rank')
-
         ws_standings = self.create_worksheet('Standings', len(master_standings), len(master_standings_col_order))
         self.write_dataframe(ws_standings, master_standings, start_cell='A2')
+        self.format_standings(ws_standings, len(master_standings))
+
         print("  ✓ Exported: Standings")
         
         # 2. Weekly Rankings (weekly ranks + cumulative stats + injury stats + toughness stats)
@@ -191,15 +193,15 @@ class GoogleSheetsExporter:
             'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points'
         ]
 
+        # Create Weekly Rankings page and export
         master_weekly_rankings = master_weekly_rankings[master_weekly_col_order]
-
         ws_weekly = self.create_worksheet('Weekly Rankings', len(master_weekly_rankings), len(master_weekly_col_order))
         self.write_dataframe(ws_weekly, master_weekly_rankings, start_cell='A2')
         print("  ✓ Exported: Weekly Rankings")
         
         print(f"\n✓ All data exported to: {self.sheet.url}")
     
-    def create_overview(self, stats: Dict[str, pd.DataFrame]):
+    def create_overview(self):
         """
         Create a comprehensive overview with an introduction, changelog, 
         features to add, tips for analyzing, and detailed metric documentation.
@@ -307,6 +309,68 @@ class GoogleSheetsExporter:
             ws.format(cell, {'textFormat': {'bold': True}})
         
         print("  ✓ Overview page created with changelog, features, and documentation")
+
+    def apply_color_scale(self, worksheet: gspread.worksheet, 
+                          start_row: int = 1, end_row: int = 1, start_col: int = 1, end_col: int = 1, 
+                          min_color: Optional[dict] = None, mid_color: Optional[dict] = None, 
+                          max_color: Optional[dict] = None, inverse: bool = False):
+        """
+        Apply color scale conditional formatting
+        
+        Args:
+            worksheet: gspread worksheet
+            start_row, end_row: Row indices (1-based)
+            start_col, end_col: Column indices (1-based, 1=A, 3=C)
+            min_color, mid_color, max_color: RGB color dicts
+        """
+
+        if min_color is None:   # red
+            min_color = {'red': 0.34, 'green': 0.73, 'blue': 0.54}
+        if mid_color is None:   # yellow
+            mid_color = {'red': 1.0, 'green': 0.84, 'blue': 0.5}
+        if max_color is None:   # green
+            max_color = {'red': 0.9, 'green': 0.49, 'blue': 0.45}
+            
+        if inverse:
+            min_color, max_color = max_color, min_color
+
+        body = {
+            "requests": [
+                {
+                    "addConditionalFormatRule": {
+                        "rule": {
+                            "ranges": [
+                                {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": start_row-1,
+                                    "endRowIndex": end_row-1,
+                                    "startColumnIndex": start_col-1,
+                                    "endColumnIndex": end_col-1
+                                }
+                            ],
+                            "gradientRule": {
+                                'minpoint': {'color': min_color, 'type': 'MIN'},
+                                'midpoint': {'color': mid_color, 'type': 'PERCENTILE', 'value': '50'},
+                                'maxpoint': {'color': max_color, 'type': 'MAX'}
+                            }
+                        },
+                        "index": 0
+                    }
+                }
+            ]
+        }
+
+        worksheet.spreadsheet.batch_update(body)
+
+    def format_standings(self, worksheet: gspread.worksheet, num_rows):
+        """
+        Apply custom Google Sheet formatting rules on the Standings page.
+        """
+
+        start_row = 3   
+        col = 3 # C
+        self.apply_color_scale(worksheet, start_row=start_row, end_row=start_row + num_rows,
+                               start_col=col, end_col=col+1, inverse=True)
 
 
 class AuthenticationError(Exception):

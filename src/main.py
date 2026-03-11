@@ -131,8 +131,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
         try:
             exporter = GoogleSheetsExporter(sheet_name=sheet_name)
             exporter.export_all_stats(stats)
-            # stats = {}
-            exporter.create_overview(stats)
+            exporter.create_overview()
         except Exception as e:
             print(f"❌ Error exporting to Google Sheets: {e}")
             print("\nMake sure your Google credentials are set up correctly:")
