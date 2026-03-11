@@ -33,16 +33,10 @@ class GoogleSheetsExporter:
             sheet_name: Name of the Google Sheet to create/use
         """
         self.credentials_path = credentials_path or os.getenv('GOOGLE_CREDENTIALS_PATH', './config/google-credentials.json')
-        print("***************init PRE sheet_name: ", sheet_name)
-        # print("***************init PRE folder_id: ", folder_id)
-
         self.sheet_name = sheet_name or os.getenv('GOOGLE_SHEET_NAME', 'ESPN Fantasy Basketball Analytics')
-        # self.folder_id = folder_id or os.getenv('GOOGLE_FOLDER_ID', None)
-        
-        print("***************init AFTER sheet_name: ", self.sheet_name)
-        # print("***************init AFTER folder_id: ", self.folder_id)
         self.client = None
         self.sheet = None
+
         self._authenticate()
     
     def _authenticate(self):
@@ -59,31 +53,17 @@ class GoogleSheetsExporter:
     
     def get_sheet(self) -> gspread.Spreadsheet:
         """
-        Get existing sheet or create new one
+        Get existing sheet or print error
         
         Returns:
             gspread Spreadsheet object
         """
         try:
-            # Try to open existing sheet
             self.sheet = self.client.open(self.sheet_name)
+
             print(f"✓ Opened existing sheet: '{self.sheet_name}'")
         except gspread.SpreadsheetNotFound:
             print("Cannot find sheet: ", self.sheet_name)
-            # Create new sheet
-
-            # if self.folder_id:
-            #     self.sheet = self.client.create(self.sheet_name, folder_id=self.folder_id)
-            # else:
-            #     self.sheet = self.client.create(self.sheet_name)  # Creates in service account Drive
-            
-            # print(f"✓ Created new sheet: '{self.sheet_name}'")
-
-            # # Share with user if email is in env
-            # user_email = os.getenv('GOOGLE_USER_EMAIL')
-            # if user_email:
-            #     self.sheet.share(user_email, perm_type='user', role='writer')
-            #     print(f"  Shared with {user_email}")
         
         return self.sheet
     
@@ -102,7 +82,7 @@ class GoogleSheetsExporter:
     
     def create_worksheet(self, title: str, rows: int = 300, cols: int = 20) -> gspread.Worksheet:
         """
-        Create a new worksheet
+        Return an existing worksheet or create a new worksheet
         
         Args:
             title: Worksheet title
@@ -113,10 +93,8 @@ class GoogleSheetsExporter:
             gspread Worksheet object
         """
         try:
-            # Try to get existing worksheet
             return self.sheet.worksheet(title)
         except gspread.WorksheetNotFound:
-            # Create new worksheet
             return self.sheet.add_worksheet(title=title, rows=rows, cols=cols)
     
     def write_dataframe(self, worksheet: gspread.Worksheet, df: pd.DataFrame, 

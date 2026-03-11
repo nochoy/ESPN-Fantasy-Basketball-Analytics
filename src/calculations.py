@@ -33,7 +33,6 @@ class FantasyCalculator:
     
     def _build_dataframes(self):
         """Convert matchup data to pandas DataFrames"""
-        # Create weekly scores dataframe
         weekly_data = []
         
         for matchup in self.matchup_summaries:
@@ -65,10 +64,8 @@ class FantasyCalculator:
                 })
         
         self.weekly_df = pd.DataFrame(weekly_data)
-        
-        # Sort by week and team
         self.weekly_df = self.weekly_df.sort_values(['week', 'team_id'])
-        print("**************self.weekly_df dataframe: \n", self.weekly_df.head(12))
+        # print("**************self.weekly_df dataframe: \n", self.weekly_df.head(12))
     
     def calculate_weekly_pf_pa_rankings(self) -> pd.DataFrame:
         """
@@ -135,7 +132,7 @@ class FantasyCalculator:
     def calculate_injury_stats(self) -> pd.DataFrame:
         """
         Calculate injury-related statistics
-        - Games missed due to injury (player on roster but DTD/OUT/INJ)
+        - Games missed from starters or bench
         - Games missed from IR slot
         - Lost fantasy points from injured players
         
@@ -180,7 +177,7 @@ class FantasyCalculator:
 
         df = pd.DataFrame(injury_data).groupby(['week', 'team_id', 'team_name']).sum().reset_index()
         
-        # Calculate cumulative stats - broken down by injury vs IR
+        # Calculate cumulative stats - broken down by injury (start/bench) vs IR
         if not df.empty:
             df = df.sort_values(['team_id', 'week'])
             
@@ -214,7 +211,6 @@ class FantasyCalculator:
         standings = []
         
         for team_id, team in self.teams.items():
-            # if team_id == 1: print("TEAM DATA: ", team)
             team_matchups = self.weekly_df[self.weekly_df['team_id'] == team_id]
             
             wins = sum(1 for _, row in team_matchups.iterrows() if row['pf'] > row['pa'])
@@ -237,12 +233,15 @@ class FantasyCalculator:
         
         df = pd.DataFrame(standings)
         df = df.sort_values(['wins', 'total_pf'], ascending=[False, False])
+
+        # Determine rank based on win count, with PF as tie breaker
         df['rank'] = range(1, len(df) + 1)
         df['avg_differential'] = round(df['differential'] / self.max_week, 2)
 
+        # Calculate average opponent rank, where rank is based on final standings
         final_ranks = df.set_index('team_id')['rank'].to_dict()
-
         avg_opponent_ranks = []
+        
         for _, row in df.iterrows():
             team_id = row['team_id']
             team_matchups = self.weekly_df[self.weekly_df['team_id'] == team_id]
@@ -268,6 +267,7 @@ class FantasyCalculator:
         cumulative_stats = self.calculate_cumulative_stats()
         toughness_summary = cumulative_stats.groupby(['team_name', 'team_id'])['cumulative_pa_rank'].last().sort_values().reset_index()
 
+        # dataframe with team_id + team_name + avg_opponent_rank + cumulative_pa_rank to differentiate SoS stats
         toughness_summary = toughness_summary.merge(
             standings[['team_id', 'team_name', 'avg_opponent_rank', 'rank']], 
             on=['team_id', 'team_name'], 

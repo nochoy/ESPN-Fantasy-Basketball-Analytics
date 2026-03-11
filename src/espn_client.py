@@ -93,8 +93,8 @@ class ESPNClient:
                 'wins': team.wins,
                 'losses': team.losses,
                 'ties': getattr(team, 'ties', 0),
-                'points_for': team.points_for,
-                'points_against': team.points_against,
+                'pf': team.points_for,
+                'pa': team.points_against,
                 'streak': getattr(team, 'streak', ''),
                 'standing': team.standing,
                 'final_standing': team.final_standing,
@@ -117,10 +117,7 @@ class ESPNClient:
             box_scores = self.league.box_scores(matchup_period=week, scoring_period=scoring_period, matchup_total=matchup_total)
             matchups = []
 
-            # count = 0
             for matchup in box_scores:
-                # if count == 0: print("***WEEK: ", week, " - MATCHUP SCORING PERIOD: ", matchup.scoring_period)
-                # count+= 1                ]
                 matchups.append({
                     'week': week,
                     'scoring_period': matchup.scoring_period,
@@ -137,8 +134,6 @@ class ESPNClient:
                         'lineup': self._extract_lineup(matchup.away_lineup) if matchup.away_lineup else []
                     }
                 })
-                # if count == 0: print('FIRST MATCHUP******: \n', matchups[0])
-                # count += 1
 
             return matchups
         except Exception as e:
@@ -149,34 +144,19 @@ class ESPNClient:
         """Extract player data from lineup"""
 
         try:
-
             players = []
-            count = 0
 
             for player in lineup:
-
-                # if count == 0: print('player: ', dir(player))
-                # else: exit()
-                # count+= 1
-
                 players.append({
                     'name': player.name,
                     'player_id': player.playerId,
                     'position': player.position,
                     'slot_position': player.slot_position,
                     'points': player.points,
-                    # 'projected_points': getattr(player, 'projected_points', 0),
                     'injury_status': getattr(player, 'injuryStatus', 'UNKNOWN'),
-                    # 'injured': player.injured,
-                    # 'pro_opponent': player.pro_opponent,
                     'injured_game': player.pro_opponent != 'None' and player.points == 0 and player.stats != {},
-                    # 'stats': player.stats
-                    # 'avg_points': avg_points[player.playerId] if include_avg_points else -1
                 })
-                # if player.pro_opponent != 'None' and player.points == 0 and player.stats != {}:
-                #     print(player.name)
-                #     count+= 1
-            # print("MISSED GAMES: ", count)
+
             return players
         except Exception as e:
             print(f"Error extracting lineup: {e}")
@@ -194,7 +174,6 @@ class ESPNClient:
             List of all matchups with aggregated totals
         """
         try:
-
             if end_week is None:
                 end_week = getattr(self.league, 'current_week', 1)
             
@@ -205,6 +184,7 @@ class ESPNClient:
                 matchups = self.get_box_scores(week, matchup_total=True)
                 all_matchups.extend(matchups)
                 print(f"  Week {week}: {len(matchups)} matchups")
+
             return all_matchups
 
         except Exception as e:
@@ -253,16 +233,6 @@ class ESPNClient:
         
         print(f"Total: {total_scoring_periods} scoring periods, {len(all_matchups)} total matchups")
         return all_matchups
-
-    def get_team_roster(self, team_id: int, week: int) -> List[Dict[str, Any]]:
-        """Get roster for a specific team and week"""
-        try:
-            team = next(t for t in self.league.teams if t.team_id == team_id)
-            roster = self.league.get_team_data(team_id).roster
-            return self._extract_lineup(roster)
-        except Exception as e:
-            print(f"Error fetching roster for team {team_id}, week {week}: {e}")
-            return []
     
     def get_player_stats(self, player_id: int) -> Dict[str, Any]:
         """Get season stats for a specific player"""
@@ -286,7 +256,7 @@ class ESPNClient:
         """
         Get avg points for all unique players across all matchups (single API call).
         
-        Args:
+        `Args:
             matchups: List of matchup dicts from get_all_box_scores()
             
         Returns:
@@ -295,6 +265,7 @@ class ESPNClient:
 
         try:
             unique_player_ids = set()
+
             for matchup in matchups:
                 for side in ['home_team', 'away_team']:
                     team_data = matchup.get(side, {})
@@ -302,6 +273,7 @@ class ESPNClient:
                         unique_player_ids.add(player['player_id'])
 
             players_data = self.league.player_info(playerId=list(unique_player_ids))
+
             return {p.playerId: getattr(p, 'avg_points', -1) for p in players_data}
         except Exception as e:
             print(f"Error fetching all players' avg points: {e}")
