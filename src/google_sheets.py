@@ -171,7 +171,7 @@ class GoogleSheetsExporter:
         master_standings = master_standings[master_standings_col_order].sort_values('rank')
         ws_standings = self.create_worksheet('Standings', len(master_standings), len(master_standings_col_order))
         self.write_dataframe(ws_standings, master_standings, start_cell='A2')
-        self.format_standings(ws_standings, len(master_standings))
+        self.format_standings(ws_standings, len(master_standings), len(master_standings.columns))
 
         print("  ✓ Exported: Standings")
         
@@ -362,15 +362,28 @@ class GoogleSheetsExporter:
 
         worksheet.spreadsheet.batch_update(body)
 
-    def format_standings(self, worksheet: gspread.worksheet, num_rows):
+    def format_standings(self, worksheet: gspread.worksheet, num_rows, num_cols):
         """
         Apply custom Google Sheet formatting rules on the Standings page.
         """
 
         start_row = 3   
-        col = 3 # C
-        self.apply_color_scale(worksheet, start_row=start_row, end_row=start_row + num_rows,
-                               start_col=col, end_col=col+1, inverse=True)
+        
+        inverse_cols = [
+            4,  # wins (D)
+            7,  # win_pct (G)
+            8,  # total_pf (H)
+            10, # differential (J)
+            11, # avg_opponent_rank (K)
+            12, # cumulative_opponent_rank (L)
+            13, # avg_pf (M)
+            15, # avg_differential (O)
+        ]
+
+        for col in range(3, num_cols+1):    # C -> AA
+            inverse = col in inverse_cols
+            self.apply_color_scale(worksheet, start_row=start_row, end_row=start_row + num_rows,
+                               start_col=col, end_col=col+1, inverse=inverse)
 
 
 class AuthenticationError(Exception):
