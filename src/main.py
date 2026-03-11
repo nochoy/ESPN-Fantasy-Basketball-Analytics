@@ -18,7 +18,7 @@ load_dotenv()
 
 def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
                   skip_export: bool = False, weeks: Optional[int] = None, 
-                  sheet_name: Optional[str] = None):
+                  sheet_name: Optional[str] = None, silent: bool = False):
     """
     Run the full analytics pipeline
     
@@ -28,6 +28,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
         skip_export: Skip Google Sheets export
         sheet_name: Name of Google Sheet to create/use
         weeks: Number of weeks to analyze (default: all completed weeks)
+        silent: Skip stat summary console output
     """
     print("=" * 60)
     print("🏀 ESPN Fantasy Basketball Analytics")
@@ -76,51 +77,52 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
     calculator = FantasyCalculator(matchup_summaries=matchup_summaries, matchups=matchups, teams=teams, player_avg_points=player_avg_points)
     stats = calculator.generate_all_stats()
     
-    # Display summary
-    print("\n" + "=" * 60)
-    print("📋 STATS SUMMARY")
-    print("=" * 60)
-    
-    print("\n🏆 Current Standings:")
-    print(stats['standings'].to_string(index=False))
+    if not silent:
+        # Display summary
+        print("\n" + "=" * 60)
+        print("📋 STATS SUMMARY")
+        print("=" * 60)
+        
+        print("\n🏆 Current Standings:")
+        print(stats['standings'].to_string(index=False))
 
-    print("\n💪 Strength of Schedule (lower = tougher):")
-    print(stats['toughness_summary'].to_string(index=False))
-    
-    print("\n📊 Weekly Rankings (Week 1 only):")
-    print(stats['weekly_rankings'].head(len(teams)).to_string(index=False))
-    
-    print("\n📈 Cumulative Stats: (First team only)")
-    print(stats['cumulative_stats'].head(end_week).to_string(index=False))
-    
-    print("\n🤕 Injury Stats Summary:")
-    injury_summary = stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
-        'avg_games_missed_injury': 'last',
-        'avg_games_missed_ir': 'last',
-        'avg_total_games_missed': 'last',
-        'avg_lost_points_injury': 'last',
-        'avg_lost_points_ir': 'last',
-        'avg_total_lost_points': 'last',
-        'games_missed_injury': 'sum',
-        'games_missed_ir': 'sum',
-        'total_games_missed': 'sum',
-        'lost_points_injury': 'sum',
-        'lost_points_ir': 'sum',
-        'total_lost_points': 'sum',
-    }).reset_index()
-    injury_summary = injury_summary.sort_values('total_games_missed', ascending=False)
-    print("Total Injury Stats:")
-    print(injury_summary[['team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].to_string(index=False))
-    print("Average Injury Stats:")
-    print(injury_summary[['team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].to_string(index=False))
-    
-    injury_weekly = stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
-    print("\n\nWeekly Injury Stats:")
-    print(injury_weekly[['week', 'team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].head(len(teams)).to_string(index=False))
-    # print("Cumulative Average Injury Stats:")
-    # print(injury_weekly[['week', 'team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].head(len(teams)).to_string(index=False))
-    print("Cumulative Injury Stats:")
-    print(injury_weekly[['week', 'team_id', 'team_name', 'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points']].head(len(teams)).to_string(index=False))
+        print("\n💪 Strength of Schedule (lower = tougher):")
+        print(stats['toughness_summary'].to_string(index=False))
+        
+        print("\n📊 Weekly Rankings (Week 1 only):")
+        print(stats['weekly_rankings'].head(len(teams)).to_string(index=False))
+        
+        print("\n📈 Cumulative Stats: (First team only)")
+        print(stats['cumulative_stats'].head(end_week).to_string(index=False))
+        
+        print("\n🤕 Injury Stats Summary:")
+        injury_summary = stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
+            'avg_games_missed_injury': 'last',
+            'avg_games_missed_ir': 'last',
+            'avg_total_games_missed': 'last',
+            'avg_lost_points_injury': 'last',
+            'avg_lost_points_ir': 'last',
+            'avg_total_lost_points': 'last',
+            'games_missed_injury': 'sum',
+            'games_missed_ir': 'sum',
+            'total_games_missed': 'sum',
+            'lost_points_injury': 'sum',
+            'lost_points_ir': 'sum',
+            'total_lost_points': 'sum',
+        }).reset_index()
+        injury_summary = injury_summary.sort_values('total_games_missed', ascending=False)
+        print("Total Injury Stats:")
+        print(injury_summary[['team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].to_string(index=False))
+        print("Average Injury Stats:")
+        print(injury_summary[['team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].to_string(index=False))
+        
+        injury_weekly = stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+        print("\n\nWeekly Injury Stats:")
+        print(injury_weekly[['week', 'team_id', 'team_name', 'games_missed_injury', 'games_missed_ir', 'total_games_missed', 'lost_points_injury', 'lost_points_ir', 'total_lost_points']].head(len(teams)).to_string(index=False))
+        # print("Cumulative Average Injury Stats:")
+        # print(injury_weekly[['week', 'team_id', 'team_name', 'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points']].head(len(teams)).to_string(index=False))
+        print("Cumulative Injury Stats:")
+        print(injury_weekly[['week', 'team_id', 'team_name', 'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points']].head(len(teams)).to_string(index=False))
 
     
     # Step 5: Export to Google Sheets
@@ -170,10 +172,12 @@ def main():
         epilog="""
 Examples:
   python src/main.py                                        # Run with .env settings
-  python src/main.py --weeks 10                             # Only analyze first 10 weeks
-  python src/main.py --skip-export                          # Don't export to Google Sheets
   python src/main.py --league-id 12345                      # Override league ID
+  python src/main.py --year 2025                            # Override leage year
+  python src/main.py --weeks 10                             # Only analyze first 10 weeks
   python src/main.py --sheet-name "Fantasy Analytics"       # Existing or desired Google sheet name
+  python src/main.py --skip-export                          # Don't export to Google Sheets
+  python src/main.py --silent                               # Don't print stat summary to console
         """
     )
     
@@ -183,12 +187,14 @@ Examples:
                        help='Season year (overrides .env)')
     parser.add_argument('--weeks', type=int, 
                        help='Number of weeks to analyze')
-    parser.add_argument('--skip-export', action='store_true',
-                       help='Skip Google Sheets export')
     parser.add_argument('--sheet-name', type=str, 
                        help='Name of Google sheet to create or use (overrides .env)')
+    parser.add_argument('--skip-export', action='store_true',
+                       help='Skip Google Sheets export')
     parser.add_argument('--setup', action='store_true',
                        help='Create .env file from template')
+    parser.add_argument('--silent', action='store_true',
+                       help='Skip stat summary console output')
     
     args = parser.parse_args()
     
@@ -208,6 +214,7 @@ Examples:
         skip_export=args.skip_export,
         weeks=args.weeks,
         sheet_name=args.sheet_name,
+        silent=args.silent,
     )
 
 
