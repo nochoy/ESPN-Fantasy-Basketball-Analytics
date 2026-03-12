@@ -80,6 +80,30 @@ class GoogleSheetsExporter:
         if worksheets:
             worksheets[0].clear()
             worksheets[0].update_title('Overview')
+    
+    def clear_all_conditional_formatting(self):
+        """
+        Remove all conditional formatting rules from every sheet.
+        """
+
+        metadata = self.sheet.fetch_sheet_metadata()
+        requests = []
+
+        for sheet in metadata["sheets"]:
+            sheet_id = sheet["properties"]["sheetId"]
+
+            rules = sheet.get("conditionalFormats", [])
+            for index in reversed(range(len(rules))):
+                requests.append({
+                    "deleteConditionalFormatRule": {
+                        "sheetId": sheet_id,
+                        "index": index
+                    }
+                })
+
+        if requests:
+            self.sheet.batch_update({"requests": requests})
+            print(f"  ✓ Cleared {len(requests)} conditional formatting rules")
 
     def create_worksheet(self, title: str, rows: int = 300, cols: int = 20) -> gspread.Worksheet:
         """
@@ -134,6 +158,7 @@ class GoogleSheetsExporter:
         print("\nExporting to Google Sheets...")
         
         self.get_sheet()
+        self.clear_all_conditional_formatting()
         
         # 1. Standings (standings + injury stats + toughness stats)
         standings = stats['standings']
@@ -402,7 +427,7 @@ class GoogleSheetsExporter:
             15, # avg_differential (O)
         ]
 
-        for col in range(start_col, num_cols-start_col+1):    # C -> AA
+        for col in range(start_col, num_cols+1):    # C -> AA
             inverse = col in inverse_cols
             self.apply_color_scale(worksheet, start_row=start_row, end_row=start_row + num_teams,
                                start_col=col, end_col=col+1, inverse=inverse)
@@ -445,11 +470,11 @@ class GoogleSheetsExporter:
         print("*****num_teams: ", num_teams)
         print("*****num_cols: ", num_cols)
         # Color scales for cols divided by weeks
-        for week in range(num_weeks):
+        for week in range(num_weeks):   # E -> AD
             week_start_row = start_row + (week * num_teams)
             print("week: ", week+1, " week_start_row: ", week_start_row)
 
-            for col in range(start_col, num_cols-start_col+1):
+            for col in range(start_col, num_cols+1):
                 if col in full_col_color_scale_cols: continue
 
                 inverse = col in inverse_cols
