@@ -36,6 +36,7 @@ class GoogleSheetsExporter:
         self.sheet_name = sheet_name or os.getenv('GOOGLE_SHEET_NAME', 'ESPN Fantasy Basketball Analytics')
         self.client = None
         self.sheet = None
+        self.format_requests = []
 
         self._authenticate()
     
@@ -79,7 +80,7 @@ class GoogleSheetsExporter:
         if worksheets:
             worksheets[0].clear()
             worksheets[0].update_title('Overview')
-    
+
     def create_worksheet(self, title: str, rows: int = 300, cols: int = 20) -> gspread.Worksheet:
         """
         Return an existing worksheet or create a new worksheet
@@ -169,7 +170,7 @@ class GoogleSheetsExporter:
 
         # Create Standings page and export 
         master_standings = master_standings[master_standings_col_order].sort_values('rank')
-        ws_standings = self.create_worksheet('Standings', len(master_standings), len(master_standings_col_order))
+        ws_standings = self.create_worksheet('Standings', len(master_standings)+2, len(master_standings_col_order))
         self.write_dataframe(ws_standings, master_standings, start_cell='A2')
         self.format_standings(ws_standings, len(master_standings), len(master_standings.columns))
 
@@ -195,10 +196,13 @@ class GoogleSheetsExporter:
 
         # Create Weekly Rankings page and export
         master_weekly_rankings = master_weekly_rankings[master_weekly_col_order]
-        ws_weekly = self.create_worksheet('Weekly Rankings', len(master_weekly_rankings), len(master_weekly_col_order))
+        ws_weekly = self.create_worksheet('Weekly Rankings', len(master_weekly_rankings)+2, len(master_weekly_col_order))
         self.write_dataframe(ws_weekly, master_weekly_rankings, start_cell='A2')
+        self.format_weekly_rankings(ws_weekly, len(master_standings), len(master_weekly_rankings.columns), master_weekly_rankings['week'].max())
+
         print("  ✓ Exported: Weekly Rankings")
-        
+
+        self.apply_all_formatting()
         print(f"\n✓ All data exported to: {self.sheet.url}")
     
     def create_overview(self):
@@ -310,64 +314,82 @@ class GoogleSheetsExporter:
         
         print("  ✓ Overview page created with changelog, features, and documentation")
 
+    def apply_all_formatting(self):
+        """
+        Apply all queued formatting requests
+        """
+
+        if not self.format_requests: 
+            return
+        
+        body = {"requests": self.format_requests}
+        self.sheet.batch_update(body)
+
+        print(f"  ✓ Applied {len(self.format_requests)} formatting rules")
+        self.format_requests = []
+
     def apply_color_scale(self, worksheet: gspread.worksheet, 
                           start_row: int = 1, end_row: int = 1, start_col: int = 1, end_col: int = 1, 
                           min_color: Optional[dict] = None, mid_color: Optional[dict] = None, 
                           max_color: Optional[dict] = None, inverse: bool = False):
         """
-        Apply color scale conditional formatting
+        Apply color scale conditional formatting, with min=green, max=red by default
         
         Args:
             worksheet: gspread worksheet
             start_row, end_row: Row indices (1-based)
             start_col, end_col: Column indices (1-based, 1=A, 3=C)
             min_color, mid_color, max_color: RGB color dicts
+            inverse: bool to swap min & max colors
         """
 
-        if min_color is None:   # red
+        if min_color is None:   # green
             min_color = {'red': 0.34, 'green': 0.73, 'blue': 0.54}
         if mid_color is None:   # yellow
             mid_color = {'red': 1.0, 'green': 0.84, 'blue': 0.5}
-        if max_color is None:   # green
+        if max_color is None:   # red
             max_color = {'red': 0.9, 'green': 0.49, 'blue': 0.45}
             
         if inverse:
             min_color, max_color = max_color, min_color
 
-        body = {
-            "requests": [
-                {
-                    "addConditionalFormatRule": {
-                        "rule": {
-                            "ranges": [
-                                {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": start_row-1,
-                                    "endRowIndex": end_row-1,
-                                    "startColumnIndex": start_col-1,
-                                    "endColumnIndex": end_col-1
-                                }
-                            ],
-                            "gradientRule": {
-                                'minpoint': {'color': min_color, 'type': 'MIN'},
-                                'midpoint': {'color': mid_color, 'type': 'PERCENTILE', 'value': '50'},
-                                'maxpoint': {'color': max_color, 'type': 'MAX'}
-                            }
-                        },
-                        "index": 0
+        request = {
+            "addConditionalFormatRule": {
+                "rule": {
+                    "ranges": [
+                        {
+                            "sheetId": worksheet.id,
+                            "startRowIndex": start_row-1,
+                            "endRowIndex": end_row-1,
+                            "startColumnIndex": start_col-1,
+                            "endColumnIndex": end_col-1
+                        }
+                    ],
+                    "gradientRule": {
+                        'minpoint': {'color': min_color, 'type': 'MIN'},
+                        'midpoint': {'color': mid_color, 'type': 'PERCENTILE', 'value': '50'},
+                        'maxpoint': {'color': max_color, 'type': 'MAX'}
                     }
-                }
-            ]
+                },
+                "index": 0
+            }
         }
 
-        worksheet.spreadsheet.batch_update(body)
+        # worksheet.spreadsheet.batch_update(request)
+        self.format_requests.append(request)
 
-    def format_standings(self, worksheet: gspread.worksheet, num_rows, num_cols):
+    def format_standings(self, worksheet: gspread.worksheet, num_teams, num_cols):
         """
         Apply custom Google Sheet formatting rules on the Standings page.
+        
+        Args:
+            worksheet: gspread worksheet
+            num_teams: number of teams 
+            num_cols: number of columns in dataframe
         """
 
         start_row = 3   
+        start_col = 3   # C
         
         inverse_cols = [
             4,  # wins (D)
@@ -380,11 +402,65 @@ class GoogleSheetsExporter:
             15, # avg_differential (O)
         ]
 
-        for col in range(3, num_cols+1):    # C -> AA
+        for col in range(start_col, num_cols-start_col+1):    # C -> AA
             inverse = col in inverse_cols
-            self.apply_color_scale(worksheet, start_row=start_row, end_row=start_row + num_rows,
+            self.apply_color_scale(worksheet, start_row=start_row, end_row=start_row + num_teams,
                                start_col=col, end_col=col+1, inverse=inverse)
 
+    def format_weekly_rankings(self, worksheet: gspread.worksheet, num_teams, num_cols, num_weeks):
+        """
+        Apply custom Google sheet formatting ruels on the Weekly Rankings Page
+
+        Args:
+            worksheet: gspread worksheet
+            num_teams: number of rows to format (teams)
+            num_cols: number of columns in dataframe
+            num_weeks: number of weeks
+        """
+
+        start_row = 3
+        start_col = 5   # E
+
+        full_col_color_scale_cols = [
+            5,  # rank (E)
+            12, # pf_rank (L)
+            13, # pa_rank (M)
+            17, # cumulative_pf_rank (Q)
+            18, # cumulative_pa_rank (R)
+
+        ]
+
+        inverse_cols = [
+            6,  # wins (F)
+            8,  # win_pct (H)
+            9,  # pf (I)
+            11, # differential (K)
+            13, # pa_rank (M)
+            14, # cumulative_pf (N)
+            16, # cumulative_differential (P)
+            18, # cumulative_pa_rank (R)
+        ]
+
+        print("*****num_weeks: ", num_weeks)
+        print("*****num_teams: ", num_teams)
+        print("*****num_cols: ", num_cols)
+        # Color scales for cols divided by weeks
+        for week in range(num_weeks):
+            week_start_row = start_row + (week * num_teams)
+            print("week: ", week+1, " week_start_row: ", week_start_row)
+
+            for col in range(start_col, num_cols-start_col+1):
+                if col in full_col_color_scale_cols: continue
+
+                inverse = col in inverse_cols
+                self.apply_color_scale(worksheet, start_row=week_start_row, end_row=week_start_row + num_teams,
+                                       start_col=col, end_col=col+1, inverse=inverse)
+
+        # Color scales for full col
+        for col in full_col_color_scale_cols:
+            inverse = col in inverse_cols
+            self.apply_color_scale(worksheet, start_row=start_row, end_row=int(start_row + (num_weeks * num_teams)),
+                                    start_col=col, end_col=col+1, inverse=inverse)
 
 class AuthenticationError(Exception):
     """Custom exception for authentication errors"""
