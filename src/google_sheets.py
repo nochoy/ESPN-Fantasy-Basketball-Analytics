@@ -36,7 +36,10 @@ class GoogleSheetsExporter:
         self.sheet_name = sheet_name or os.getenv('GOOGLE_SHEET_NAME', 'ESPN Fantasy Basketball Analytics')
         self.client = None
         self.sheet = None
+        self.stats = {}
         self.format_requests = []
+        self.standings_col_map = {}
+        self.weekly_rankings_col_map = {}
 
         self._authenticate()
     
@@ -148,22 +151,15 @@ class GoogleSheetsExporter:
             'backgroundColor': {'red': 0.9, 'green': 0.9, 'blue': 0.9}
         })
     
-    def export_all_stats(self, stats: Dict[str, pd.DataFrame]):
+    def _compile_standings_df(self) -> pd.DataFrame:
         """
-        Export all statistics to Google Sheets
-        
-        Args:
-            stats: Dictionary of DataFrames with calculated stats
+        Compile statistics for Standings page into dataframe ready for export
         """
-        print("\nExporting to Google Sheets...")
-        
-        self.get_sheet()
-        self.clear_all_conditional_formatting()
-        
-        # 1. Standings (standings + injury stats + toughness stats)
-        standings = stats['standings']
 
-        injury_standings = stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
+        print("  Compiling stats for Standings page to export...")
+
+        standings = self.stats['standings']
+        injury_standings = self.stats['injury_stats'].groupby(['team_id', 'team_name']).agg({
             'avg_games_missed_injury': 'last',
             'avg_games_missed_ir': 'last',
             'avg_total_games_missed': 'last',
@@ -178,12 +174,14 @@ class GoogleSheetsExporter:
             'total_lost_points': 'sum',
         }).reset_index()
 
-        toughness_standings = stats['cumulative_stats'].groupby(['team_name', 'team_id'])['cumulative_pa_rank'].last().sort_values().reset_index()
+        toughness_standings = self.stats['cumulative_stats'].groupby(['team_name', 'team_id'])['cumulative_pa_rank'].last().sort_values().reset_index()
 
+        # Merge data into one sheet
         standings_and_injury_df = pd.merge(standings, injury_standings, on=['team_id', 'team_name'], how='outer')
-        master_standings = pd.merge(standings_and_injury_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
+        full_standings_df = pd.merge(standings_and_injury_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
 
-        master_standings_col_order = [
+        # Reorder columns
+        full_standings_df_col_order = [
             'team_name', 'team_id', 'rank', 'wins', 'losses', 'ties', 'win_pct', 
             'total_pf', 'total_pa', 'differential', 'avg_opponent_rank', 'cumulative_pa_rank', 
             'avg_pf', 'avg_pa', 'avg_differential',
@@ -192,23 +190,26 @@ class GoogleSheetsExporter:
             'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 
             'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points'
         ]
+        full_standings_df = full_standings_df[full_standings_df_col_order].sort_values('rank')
 
-        # Create Standings page and export 
-        master_standings = master_standings[master_standings_col_order].sort_values('rank')
-        ws_standings = self.create_worksheet('Standings', len(master_standings)+2, len(master_standings_col_order))
-        self.write_dataframe(ws_standings, master_standings, start_cell='A2')
-        self.format_standings(ws_standings, len(master_standings), len(master_standings.columns))
+        return full_standings_df
+    
+    def _compile_weekly_rankings_df(self) -> pd.DataFrame:
+        """
+        Compile statistics for Weekly Rankings page into dataframe ready for export
+        """
 
-        print("  ✓ Exported: Standings")
-        
-        # 2. Weekly Rankings (weekly ranks + cumulative stats + injury stats + toughness stats)
-        weekly_rankings = stats['weekly_rankings']
-        cumulative_stats = stats['cumulative_stats']
-        injury_weekly = stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+        print("  Compiling stats for Weekly Rankings page to export...")
 
+        weekly_rankings = self.stats['weekly_rankings']
+        cumulative_stats = self.stats['cumulative_stats']
+        injury_weekly = self.stats['injury_stats'].groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+
+        # Merge datra into one sheet
         weekly_and_cumulative_df = pd.merge(weekly_rankings, cumulative_stats, on=['week', 'team_id', 'team_name'], how='outer')
-        master_weekly_rankings = pd.merge(weekly_and_cumulative_df, injury_weekly, on=['week', 'team_id', 'team_name'], how='outer')
+        full_weekly_rankings_df = pd.merge(weekly_and_cumulative_df, injury_weekly, on=['week', 'team_id', 'team_name'], how='outer')
 
+        # Reorder columns
         master_weekly_col_order = [
             'week', 'team_name', 'team_id', 'opponent_name', 'rank', 'wins', 'losses', 'win_pct', 
             'pf', 'pa', 'differential', 'pf_rank', 'pa_rank', 
@@ -218,12 +219,37 @@ class GoogleSheetsExporter:
             'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 
             'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points'
         ]
+        full_weekly_rankings_df = full_weekly_rankings_df[master_weekly_col_order]
 
-        # Create Weekly Rankings page and export
-        master_weekly_rankings = master_weekly_rankings[master_weekly_col_order]
-        ws_weekly = self.create_worksheet('Weekly Rankings', len(master_weekly_rankings)+2, len(master_weekly_col_order))
-        self.write_dataframe(ws_weekly, master_weekly_rankings, start_cell='A2')
-        self.format_weekly_rankings(ws_weekly, len(master_standings), len(master_weekly_rankings.columns), master_weekly_rankings['week'].max())
+        return full_weekly_rankings_df
+
+
+    def export_all_stats(self, stats: Dict[str, pd.DataFrame]):
+        """
+        Export all statistics to Google Sheets
+        
+        Args:
+            stats: Dictionary of DataFrames with calculated stats
+        """
+        print("\nExporting to Google Sheets...")
+
+        self.stats = stats
+        self.get_sheet()
+        self.clear_all_conditional_formatting()
+
+        # Compile Standings page stats, export to Google sheet, and add formatting rules
+        full_standings_df = self._compile_standings_df()
+        standings_ws = self.create_worksheet('Standings', len(full_standings_df)+2, len(full_standings_df.columns))
+        self.write_dataframe(standings_ws, full_standings_df, start_cell='A2')
+        self.format_standings(standings_ws, len(full_standings_df), len(full_standings_df.columns))
+
+        print("  ✓ Exported: Standings")
+        
+        # Compile Weekly Rankings page stats, export to Google sheet, and apply formatting
+        full_weekly_rankings_df = self._compile_weekly_rankings_df()
+        ws_weekly = self.create_worksheet('Weekly Rankings', len(full_weekly_rankings_df)+2, len(full_weekly_rankings_df.columns))
+        self.write_dataframe(ws_weekly, full_weekly_rankings_df, start_cell='A2')
+        self.format_weekly_rankings(ws_weekly, len(full_standings_df), len(full_weekly_rankings_df.columns), full_weekly_rankings_df['week'].max())
 
         print("  ✓ Exported: Weekly Rankings")
 
@@ -452,7 +478,6 @@ class GoogleSheetsExporter:
             13, # pa_rank (M)
             17, # cumulative_pf_rank (Q)
             18, # cumulative_pa_rank (R)
-
         ]
 
         inverse_cols = [
@@ -466,9 +491,6 @@ class GoogleSheetsExporter:
             18, # cumulative_pa_rank (R)
         ]
 
-        print("*****num_weeks: ", num_weeks)
-        print("*****num_teams: ", num_teams)
-        print("*****num_cols: ", num_cols)
         # Color scales for cols divided by weeks
         for week in range(num_weeks):   # E -> AD
             week_start_row = start_row + (week * num_teams)
