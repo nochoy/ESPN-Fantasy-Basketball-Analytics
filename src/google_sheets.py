@@ -192,6 +192,10 @@ class GoogleSheetsExporter:
         ]
         full_standings_df = full_standings_df[full_standings_df_col_order].sort_values('rank')
 
+        # Build col map for formatting
+        self.standings_col_map = self._build_col_map(full_standings_df)
+        print("\n\nSTANDINGS_COL_MAP:\n", self.standings_col_map)
+
         return full_standings_df
     
     def _compile_weekly_rankings_df(self) -> pd.DataFrame:
@@ -221,8 +225,11 @@ class GoogleSheetsExporter:
         ]
         full_weekly_rankings_df = full_weekly_rankings_df[master_weekly_col_order]
 
-        return full_weekly_rankings_df
+        # Build col map for formatting
+        self.weekly_rankings_col_map = self._build_col_map(full_weekly_rankings_df)
+        print("\n\nWEEKLY_RANKINGS_COL_MAP:\n", self.weekly_rankings_col_map)
 
+        return full_weekly_rankings_df
 
     def export_all_stats(self, stats: Dict[str, pd.DataFrame]):
         """
@@ -365,6 +372,13 @@ class GoogleSheetsExporter:
         
         print("  ✓ Overview page created with changelog, features, and documentation")
 
+    def _build_col_map(self, df: pd.DataFrame):
+        """
+        Create mapping of column_name -> 1-based column index (Google Sheets style)
+        """
+
+        return {col: i+1 for i, col in enumerate(df.columns)}
+    
     def apply_all_formatting(self):
         """
         Apply all queued formatting requests
@@ -426,7 +440,6 @@ class GoogleSheetsExporter:
             }
         }
 
-        # worksheet.spreadsheet.batch_update(request)
         self.format_requests.append(request)
 
     def format_standings(self, worksheet: gspread.worksheet, num_teams, num_cols):
@@ -440,17 +453,17 @@ class GoogleSheetsExporter:
         """
 
         start_row = 3   
-        start_col = 3   # C
+        start_col = self.standings_col_map['rank']   # C
         
         inverse_cols = [
-            4,  # wins (D)
-            7,  # win_pct (G)
-            8,  # total_pf (H)
-            10, # differential (J)
-            11, # avg_opponent_rank (K)
-            12, # cumulative_opponent_rank (L)
-            13, # avg_pf (M)
-            15, # avg_differential (O)
+            self.standings_col_map['wins'],                     # D
+            self.standings_col_map['win_pct'],                  # G
+            self.standings_col_map['total_pf'],                 # H
+            self.standings_col_map['differential'],             # J
+            self.standings_col_map['avg_opponent_rank'],        # K
+            self.standings_col_map['cumulative_pa_rank'],       # L
+            self.standings_col_map['avg_pf'],                   # M
+            self.standings_col_map['avg_differential'],         # O
         ]
 
         for col in range(start_col, num_cols+1):    # C -> AA
@@ -470,25 +483,25 @@ class GoogleSheetsExporter:
         """
 
         start_row = 3
-        start_col = 5   # E
+        start_col = self.weekly_rankings_col_map['rank']   # E
 
         full_col_color_scale_cols = [
-            5,  # rank (E)
-            12, # pf_rank (L)
-            13, # pa_rank (M)
-            17, # cumulative_pf_rank (Q)
-            18, # cumulative_pa_rank (R)
+            self.weekly_rankings_col_map['rank'],              # (E)
+            self.weekly_rankings_col_map['pf_rank'],            # (L)
+            self.weekly_rankings_col_map['pa_rank'],            # (M)
+            self.weekly_rankings_col_map['cumulative_pf_rank'], # (Q)
+            self.weekly_rankings_col_map['cumulative_pa_rank'], # (R)
         ]
 
         inverse_cols = [
-            6,  # wins (F)
-            8,  # win_pct (H)
-            9,  # pf (I)
-            11, # differential (K)
-            13, # pa_rank (M)
-            14, # cumulative_pf (N)
-            16, # cumulative_differential (P)
-            18, # cumulative_pa_rank (R)
+            self.weekly_rankings_col_map['wins'],                       # F
+            self.weekly_rankings_col_map['win_pct'],                    # H
+            self.weekly_rankings_col_map['pf'],                         # I
+            self.weekly_rankings_col_map['differential'],               # K
+            self.weekly_rankings_col_map['pa_rank'],                    # M
+            self.weekly_rankings_col_map['cumulative_pf'],              # N
+            self.weekly_rankings_col_map['cumulative_differential'],    # P
+            self.weekly_rankings_col_map['cumulative_pa_rank'],         # R
         ]
 
         # Color scales for cols divided by weeks
