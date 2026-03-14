@@ -408,11 +408,11 @@ class GoogleSheetsExporter:
         """
 
         if min_color is None:   # green
-            min_color = {'red': 0.34, 'green': 0.73, 'blue': 0.54}
+            min_color = {'red': 0.342, 'green': 0.734, 'blue': 0.542}
         if mid_color is None:   # yellow
-            mid_color = {'red': 1.0, 'green': 0.84, 'blue': 0.5}
+            mid_color = {'red': 1.0, 'green': 0.84, 'blue': 0.4}
         if max_color is None:   # red
-            max_color = {'red': 0.9, 'green': 0.49, 'blue': 0.45}
+            max_color = {'red': 0.902, 'green': 0.49, 'blue': 0.451}
             
         if inverse:
             min_color, max_color = max_color, min_color
@@ -449,6 +449,7 @@ class GoogleSheetsExporter:
         Args:
             worksheet: gspread worksheet
             col: column number of apply conditional formatting rule
+            start_row, end_row: Row indices (1-based)
             extreme: bold min or max
         """
 
@@ -490,6 +491,53 @@ class GoogleSheetsExporter:
             }
         }
 
+        self.format_requests.append(request)
+
+    def apply_highlight_win_rows(self, worksheet: gspread.Worksheet, num_cols: int,
+                                 start_row: Optional[int] = None, end_row: Optional[int] = None):
+        """
+        Highlight winner rows in Weekly Rankings page where PF > PA, with green background
+
+        Args:
+            worksheet: gspread worksheet
+            start_col, end_col: Column indices (1-based, 1=A, 3=C)
+            num_cols: number of columns to apply conditional formatting rules to
+        """
+        
+        pf_col_letter = rowcol_to_a1(1, self.weekly_rankings_col_map['pf'])[0]
+        pa_col_letter = rowcol_to_a1(1, self.weekly_rankings_col_map['pa'])[0]
+
+        if start_row is None:
+            start_row = self.data_start_row
+        if end_row is None:
+            end_row = start_row + 1
+
+        formula = f"=${pf_col_letter}{start_row}>${pa_col_letter}{start_row}"
+
+        request = {
+            "addConditionalFormatRule": {
+                "rule": {
+                    "ranges": [{
+                        "sheetId": worksheet.id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": num_cols
+                    }],
+                    "booleanRule": {
+                        "condition": {
+                            "type": "CUSTOM_FORMULA",
+                            "values": [{"userEnteredValue": formula}]
+                        },
+                        "format": {
+                            "backgroundColor": {"red": 0.718, "green": 0.883, "blue": 0.804}
+                        }
+                    }
+                },
+                "index": 0
+            }
+        }
+        
         self.format_requests.append(request)
 
     def format_standings(self, worksheet: gspread.Worksheet, num_teams, num_cols):
@@ -581,6 +629,9 @@ class GoogleSheetsExporter:
         bold_min_cols = [
             self.weekly_rankings_col_map['pa'],                       # J
         ]
+
+        # Highlight winner rows
+        self.apply_highlight_win_rows(worksheet, num_cols, end_row=int(self.data_start_row + (num_weeks * num_teams)))
 
         # Bold min/max columns values
         for col in bold_max_cols:
