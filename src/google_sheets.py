@@ -8,7 +8,7 @@ import pandas as pd
 from datetime import date
 from typing import Dict, Optional
 import gspread
-from gspread.utils import ValueRenderOption
+from gspread.utils import rowcol_to_a1
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 
@@ -37,6 +37,7 @@ class GoogleSheetsExporter:
         self.client = None
         self.sheet = None
         self.stats = {}
+        self.data_start_row = 3
         self.format_requests = []
         self.standings_col_map = {}
         self.weekly_rankings_col_map = {}
@@ -393,7 +394,7 @@ class GoogleSheetsExporter:
         print(f"  ✓ Applied {len(self.format_requests)} formatting rules")
         self.format_requests = []
 
-    def apply_color_scale(self, worksheet: gspread.worksheet, 
+    def apply_color_scale(self, worksheet: gspread.Worksheet, 
                           start_row: int = 1, end_row: int = 1, start_col: int = 1, end_col: int = 1, 
                           min_color: Optional[dict] = None, mid_color: Optional[dict] = None, 
                           max_color: Optional[dict] = None, inverse: bool = False):
@@ -442,7 +443,59 @@ class GoogleSheetsExporter:
 
         self.format_requests.append(request)
 
-    def format_standings(self, worksheet: gspread.worksheet, num_teams, num_cols):
+    def apply_bold_extreme(self, worksheet: gspread.Worksheet, col: int, 
+                           start_row: Optional[int] = None, end_row: Optional[int] = None, extreme: str = "max"):
+        """
+        Apply conditional formatting rule to bold max or min values in a column
+
+        Args:
+            worksheet: gspread worksheet
+            col: column number of apply conditional formatting rule
+            extreme: bold min or max
+        """
+
+        if start_row is None:
+            start_row = self.data_start_row
+        col_letter = rowcol_to_a1(self.data_start_row, col)[0]
+        print("applying bold extreme to: ", col_letter)
+
+        if extreme == "max":
+            formula = f"=${col_letter}{start_row}=MAX(${col_letter}${start_row}:${col_letter}"
+        else:
+            formula = f"=${col_letter}{start_row}=MIN(${col_letter}${start_row}:${col_letter}"
+
+        if end_row:
+            formula += f"${end_row})"
+        else:
+            formula += ")"
+
+        request = {
+            "addConditionalFormatRule": {
+                "rule": {
+                    "ranges": [{
+                        "sheetId": worksheet.id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": col - 1,
+                        "endColumnIndex": col
+                    }],
+                    "booleanRule": {
+                        "condition": {
+                            "type": "CUSTOM_FORMULA",
+                            "values": [{"userEnteredValue": formula}]
+                        },
+                        "format": {
+                            "textFormat": {"bold": True}
+                        }
+                    }
+                },
+                "index": 0
+            }
+        }
+
+        self.format_requests.append(request)
+
+    def format_standings(self, worksheet: gspread.Worksheet, num_teams, num_cols):
         """
         Apply custom Google Sheet formatting rules on the Standings page.
         
@@ -452,10 +505,10 @@ class GoogleSheetsExporter:
             num_cols: number of columns in dataframe
         """
 
-        start_row = 3   
-        start_col = self.standings_col_map['rank']   # C
-        
-        inverse_cols = [
+        color_scale_start_col = self.standings_col_map['rank']  # C
+        bold_extreme_start_col = self.standings_col_map['wins'] # D
+
+        color_scale_inverse_cols = [
             self.standings_col_map['wins'],                     # D
             self.standings_col_map['win_pct'],                  # G
             self.standings_col_map['total_pf'],                 # H
@@ -466,12 +519,26 @@ class GoogleSheetsExporter:
             self.standings_col_map['avg_differential'],         # O
         ]
 
-        for col in range(start_col, num_cols+1):    # C -> AA
-            inverse = col in inverse_cols
-            self.apply_color_scale(worksheet, start_row=start_row, end_row=start_row + num_teams,
-                               start_col=col, end_col=col+1, inverse=inverse)
+        bold_min_cols = [
+            self.standings_col_map['losses'],                   # E
+            self.standings_col_map['avg_opponent_rank'],        # K
+            self.standings_col_map['cumulative_pa_rank'],       # L
+        ]
 
-    def format_weekly_rankings(self, worksheet: gspread.worksheet, num_teams, num_cols, num_weeks):
+        # Add bold min/max columns
+        for col in range(bold_extreme_start_col, num_cols+1):
+            extreme = "min" if col in bold_min_cols else "max"
+            self.apply_bold_extreme(worksheet, col, extreme=extreme)
+
+        # Add color scales
+        for col in range(color_scale_start_col, num_cols+1):    # C -> AA
+            inverse = col in color_scale_inverse_cols
+
+            self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=self.data_start_row + num_teams,
+                               start_col=col, end_col=col+1, inverse=inverse)
+            
+
+    def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams, num_cols, num_weeks):
         """
         Apply custom Google sheet formatting ruels on the Weekly Rankings Page
 
@@ -482,7 +549,6 @@ class GoogleSheetsExporter:
             num_weeks: number of weeks
         """
 
-        start_row = 3
         start_col = self.weekly_rankings_col_map['rank']   # E
 
         full_col_color_scale_cols = [
@@ -506,7 +572,7 @@ class GoogleSheetsExporter:
 
         # Color scales for cols divided by weeks
         for week in range(num_weeks):   # E -> AD
-            week_start_row = start_row + (week * num_teams)
+            week_start_row = self.data_start_row + (week * num_teams)
             print("week: ", week+1, " week_start_row: ", week_start_row)
 
             for col in range(start_col, num_cols+1):
@@ -519,7 +585,7 @@ class GoogleSheetsExporter:
         # Color scales for full col
         for col in full_col_color_scale_cols:
             inverse = col in inverse_cols
-            self.apply_color_scale(worksheet, start_row=start_row, end_row=int(start_row + (num_weeks * num_teams)),
+            self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=int(self.data_start_row + (num_weeks * num_teams)),
                                     start_col=col, end_col=col+1, inverse=inverse)
 
 class AuthenticationError(Exception):
