@@ -195,7 +195,6 @@ class GoogleSheetsExporter:
 
         # Build col map for formatting
         self.standings_col_map = self._build_col_map(full_standings_df)
-        print("\n\nSTANDINGS_COL_MAP:\n", self.standings_col_map)
 
         return full_standings_df
     
@@ -228,7 +227,6 @@ class GoogleSheetsExporter:
 
         # Build col map for formatting
         self.weekly_rankings_col_map = self._build_col_map(full_weekly_rankings_df)
-        print("\n\nWEEKLY_RANKINGS_COL_MAP:\n", self.weekly_rankings_col_map)
 
         return full_weekly_rankings_df
 
@@ -457,7 +455,6 @@ class GoogleSheetsExporter:
         if start_row is None:
             start_row = self.data_start_row
         col_letter = rowcol_to_a1(self.data_start_row, col)[0]
-        print("applying bold extreme to: ", col_letter)
 
         if extreme == "max":
             formula = f"=${col_letter}{start_row}=MAX(${col_letter}${start_row}:${col_letter}"
@@ -525,7 +522,7 @@ class GoogleSheetsExporter:
             self.standings_col_map['cumulative_pa_rank'],       # L
         ]
 
-        # Add bold min/max columns
+        # Bold min/max columns values
         for col in range(bold_extreme_start_col, num_cols+1):
             extreme = "min" if col in bold_min_cols else "max"
             self.apply_bold_extreme(worksheet, col, extreme=extreme)
@@ -537,7 +534,6 @@ class GoogleSheetsExporter:
             self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=self.data_start_row + num_teams,
                                start_col=col, end_col=col+1, inverse=inverse)
             
-
     def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams, num_cols, num_weeks):
         """
         Apply custom Google sheet formatting ruels on the Weekly Rankings Page
@@ -549,9 +545,9 @@ class GoogleSheetsExporter:
             num_weeks: number of weeks
         """
 
-        start_col = self.weekly_rankings_col_map['rank']   # E
+        color_scale_start_col = self.weekly_rankings_col_map['rank']    # E
 
-        full_col_color_scale_cols = [
+        color_scale_full_col_cols = [
             self.weekly_rankings_col_map['rank'],              # (E)
             self.weekly_rankings_col_map['pf_rank'],            # (L)
             self.weekly_rankings_col_map['pa_rank'],            # (M)
@@ -559,7 +555,7 @@ class GoogleSheetsExporter:
             self.weekly_rankings_col_map['cumulative_pa_rank'], # (R)
         ]
 
-        inverse_cols = [
+        color_scale_inverse_cols = [
             self.weekly_rankings_col_map['wins'],                       # F
             self.weekly_rankings_col_map['win_pct'],                    # H
             self.weekly_rankings_col_map['pf'],                         # I
@@ -570,21 +566,42 @@ class GoogleSheetsExporter:
             self.weekly_rankings_col_map['cumulative_pa_rank'],         # R
         ]
 
+        bold_max_cols = [
+            self.weekly_rankings_col_map['wins'],                     # F
+            self.weekly_rankings_col_map['pf'],                       # I
+            self.weekly_rankings_col_map['differential'],             # K
+            self.weekly_rankings_col_map['games_missed_injury'],      # S
+            self.weekly_rankings_col_map['games_missed_ir'],          # T
+            self.weekly_rankings_col_map['total_games_missed'],       # U
+            self.weekly_rankings_col_map['lost_points_injury'],       # V
+            self.weekly_rankings_col_map['lost_points_ir'],           # W
+            self.weekly_rankings_col_map['total_lost_points'],        # X
+        ]
+
+        bold_min_cols = [
+            self.weekly_rankings_col_map['pa'],                       # J
+        ]
+
+        # Bold min/max columns values
+        for col in bold_max_cols:
+            self.apply_bold_extreme(worksheet, col)
+        for col in bold_min_cols:
+            self.apply_bold_extreme(worksheet, col, extreme="min")
+
         # Color scales for cols divided by weeks
         for week in range(num_weeks):   # E -> AD
             week_start_row = self.data_start_row + (week * num_teams)
-            print("week: ", week+1, " week_start_row: ", week_start_row)
 
-            for col in range(start_col, num_cols+1):
-                if col in full_col_color_scale_cols: continue
+            for col in range(color_scale_start_col, num_cols+1):
+                if col in color_scale_full_col_cols: continue
 
-                inverse = col in inverse_cols
+                inverse = col in color_scale_inverse_cols
                 self.apply_color_scale(worksheet, start_row=week_start_row, end_row=week_start_row + num_teams,
                                        start_col=col, end_col=col+1, inverse=inverse)
 
         # Color scales for full col
-        for col in full_col_color_scale_cols:
-            inverse = col in inverse_cols
+        for col in color_scale_full_col_cols:
+            inverse = col in color_scale_inverse_cols
             self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=int(self.data_start_row + (num_weeks * num_teams)),
                                     start_col=col, end_col=col+1, inverse=inverse)
 
