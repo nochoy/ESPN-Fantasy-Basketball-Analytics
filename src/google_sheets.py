@@ -540,6 +540,64 @@ class GoogleSheetsExporter:
         
         self.format_requests.append(request)
 
+    def apply_col_border(self, worksheet: gspread.Worksheet, col: int, start_row: int, end_row: int, border_width: int = 1):
+        """
+        Add vertical left border at specified column position
+
+        Args:
+            worksheet: gspread worksheet
+            col: column to set left border
+            start_row, end_row: row indices (1-based)
+            border_width: width of border
+        """
+
+        request = {
+            "updateBorders": {
+                "range": {
+                    "sheetId": worksheet.id,
+                    "startRowIndex": start_row-1,
+                    "endRowIndex": end_row-1,
+                    "startColumnIndex": col-1,
+                    "endColumnIndex": col,
+                },
+                "left": {
+                    "style": "SOLID",
+                    "width": border_width
+                }
+            }
+        }
+
+        self.format_requests.append(request)
+
+    def apply_row_border(self, worksheet: gspread.Worksheet, row: int, start_col: int, end_col: int, border_width: int = 1):
+        """
+        Add horizontal top border at specified row position
+
+        Args:
+            worksheet: gspread worksheet
+            row: row to set bottom border
+            start_col, end_col: column indices (1-based, 1=A, 3=C)
+            border_width: width of border
+        """
+
+        request = {
+            "updateBorders": {
+                "range": {
+                    "sheetId": worksheet.id,
+                    "startRowIndex": row-1,
+                    "endRowIndex": row,
+                    "startColumnIndex": start_col-1,
+                    "endColumnIndex": end_col-1,
+                },
+                "top": {
+                    "style": "SOLID",
+                    "width": border_width
+                }
+            }
+        }
+
+        self.format_requests.append(request)
+
     def format_standings(self, worksheet: gspread.Worksheet, num_teams, num_cols):
         """
         Apply custom Google Sheet formatting rules on the Standings page.
@@ -552,6 +610,7 @@ class GoogleSheetsExporter:
 
         color_scale_start_col = self.standings_col_map['rank']  # C
         bold_extreme_start_col = self.standings_col_map['wins'] # D
+        last_row = self.data_start_row + num_teams
 
         color_scale_inverse_cols = [
             self.standings_col_map['wins'],                     # D
@@ -579,8 +638,13 @@ class GoogleSheetsExporter:
         for col in range(color_scale_start_col, num_cols+1):    # C -> AA
             inverse = col in color_scale_inverse_cols
 
-            self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=self.data_start_row + num_teams,
+            self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=last_row,
                                start_col=col, end_col=col+1, inverse=inverse)
+            
+        # Add borders
+        for row in (['rank', 'games_missed_injury', 'avg_games_missed_injury']):
+            self.apply_col_border(worksheet, self.standings_col_map[row], 1, num_teams + self.data_start_row)
+        self.apply_row_border(worksheet, last_row, 1, num_cols)
             
     def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams, num_cols, num_weeks):
         """
@@ -594,6 +658,7 @@ class GoogleSheetsExporter:
         """
 
         color_scale_start_col = self.weekly_rankings_col_map['rank']    # E
+        last_row = int(self.data_start_row + (num_weeks * num_teams))
 
         color_scale_full_col_cols = [
             self.weekly_rankings_col_map['rank'],              # (E)
@@ -631,7 +696,7 @@ class GoogleSheetsExporter:
         ]
 
         # Highlight winner rows
-        self.apply_highlight_win_rows(worksheet, num_cols, end_row=int(self.data_start_row + (num_weeks * num_teams)))
+        self.apply_highlight_win_rows(worksheet, num_cols, end_row=last_row)
 
         # Bold min/max columns values
         for col in bold_max_cols:
@@ -653,8 +718,13 @@ class GoogleSheetsExporter:
         # Color scales for full col
         for col in color_scale_full_col_cols:
             inverse = col in color_scale_inverse_cols
-            self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=int(self.data_start_row + (num_weeks * num_teams)),
+            self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=last_row,
                                     start_col=col, end_col=col+1, inverse=inverse)
+            
+        # Add borders
+        for col in (['rank', 'games_missed_injury', 'cumulative_games_missed_injury']):
+            self.apply_col_border(worksheet, self.weekly_rankings_col_map[col], 1, last_row)
+        self.apply_row_border(worksheet, last_row, 1, num_cols)
 
 class AuthenticationError(Exception):
     """Custom exception for authentication errors"""
