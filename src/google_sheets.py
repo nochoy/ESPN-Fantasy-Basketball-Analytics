@@ -11,9 +11,9 @@ import gspread
 from gspread.utils import rowcol_to_a1
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
+from config.formatting_config import STANDINGS_FORMATTING, WEEKLY_FORMATTING
 
 load_dotenv()
-
 
 class GoogleSheetsExporter:
     """Exporter for sending fantasy data to Google Sheets"""
@@ -371,13 +371,24 @@ class GoogleSheetsExporter:
         
         print("  ✓ Overview page created with changelog, features, and documentation")
 
-    def _build_col_map(self, df: pd.DataFrame):
+    def _build_col_map(self, df: pd.DataFrame) -> dict[str, int]:
         """
         Create mapping of column_name -> 1-based column index (Google Sheets style)
         """
 
         return {col: i+1 for i, col in enumerate(df.columns)}
     
+    def _col_names_to_nums(self, col_map: Dict[str, int], col_names: list[str]) -> list[int]:
+        """
+        Return list of column numbers from column names
+        
+        Args:
+            col_map: mapping of column names to column numbers
+            col_names: list of column names to convert
+        """
+
+        return [col_map[n] for n in col_names if n in col_map]
+
     def apply_all_formatting(self):
         """
         Apply all queued formatting requests
@@ -608,26 +619,13 @@ class GoogleSheetsExporter:
             num_cols: number of columns in dataframe
         """
 
+        bold_min_cols = self._col_names_to_nums(self.standings_col_map, STANDINGS_FORMATTING['bold_min_cols'])
+        color_scale_inverse_cols = self._col_names_to_nums(self.standings_col_map, STANDINGS_FORMATTING['color_scale_inverse_cols'])
+        vertical_borders = self._col_names_to_nums(self.standings_col_map, STANDINGS_FORMATTING['vertical_borders'])
+
         color_scale_start_col = self.standings_col_map['rank']  # C
         bold_extreme_start_col = self.standings_col_map['wins'] # D
         last_row = self.data_start_row + num_teams
-
-        color_scale_inverse_cols = [
-            self.standings_col_map['wins'],                     # D
-            self.standings_col_map['win_pct'],                  # G
-            self.standings_col_map['total_pf'],                 # H
-            self.standings_col_map['differential'],             # J
-            self.standings_col_map['avg_opponent_rank'],        # K
-            self.standings_col_map['cumulative_pa_rank'],       # L
-            self.standings_col_map['avg_pf'],                   # M
-            self.standings_col_map['avg_differential'],         # O
-        ]
-
-        bold_min_cols = [
-            self.standings_col_map['losses'],                   # E
-            self.standings_col_map['avg_opponent_rank'],        # K
-            self.standings_col_map['cumulative_pa_rank'],       # L
-        ]
 
         # Bold min/max columns values
         for col in range(bold_extreme_start_col, num_cols+1):
@@ -637,13 +635,13 @@ class GoogleSheetsExporter:
         # Add color scales
         for col in range(color_scale_start_col, num_cols+1):    # C -> AA
             inverse = col in color_scale_inverse_cols
-
+            
             self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=last_row,
                                start_col=col, end_col=col+1, inverse=inverse)
             
         # Add borders
-        for row in (['rank', 'games_missed_injury', 'avg_games_missed_injury']):
-            self.apply_col_border(worksheet, self.standings_col_map[row], 1, num_teams + self.data_start_row)
+        for col in vertical_borders:
+            self.apply_col_border(worksheet, col, 1, num_teams + self.data_start_row)
         self.apply_row_border(worksheet, last_row, 1, num_cols)
             
     def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams, num_cols, num_weeks):
@@ -657,43 +655,14 @@ class GoogleSheetsExporter:
             num_weeks: number of weeks
         """
 
+        color_scale_full_col_cols = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['color_scale_full_col_cols'])
+        color_scale_inverse_cols = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['color_scale_inverse_cols'])
+        bold_max_cols = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['bold_max_cols'])
+        bold_min_cols = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['bold_min_cols'])
+        vertical_borders = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['vertical_borders'])
+
         color_scale_start_col = self.weekly_rankings_col_map['rank']    # E
         last_row = int(self.data_start_row + (num_weeks * num_teams))
-
-        color_scale_full_col_cols = [
-            self.weekly_rankings_col_map['rank'],              # (E)
-            self.weekly_rankings_col_map['pf_rank'],            # (L)
-            self.weekly_rankings_col_map['pa_rank'],            # (M)
-            self.weekly_rankings_col_map['cumulative_pf_rank'], # (Q)
-            self.weekly_rankings_col_map['cumulative_pa_rank'], # (R)
-        ]
-
-        color_scale_inverse_cols = [
-            self.weekly_rankings_col_map['wins'],                       # F
-            self.weekly_rankings_col_map['win_pct'],                    # H
-            self.weekly_rankings_col_map['pf'],                         # I
-            self.weekly_rankings_col_map['differential'],               # K
-            self.weekly_rankings_col_map['pa_rank'],                    # M
-            self.weekly_rankings_col_map['cumulative_pf'],              # N
-            self.weekly_rankings_col_map['cumulative_differential'],    # P
-            self.weekly_rankings_col_map['cumulative_pa_rank'],         # R
-        ]
-
-        bold_max_cols = [
-            self.weekly_rankings_col_map['wins'],                     # F
-            self.weekly_rankings_col_map['pf'],                       # I
-            self.weekly_rankings_col_map['differential'],             # K
-            self.weekly_rankings_col_map['games_missed_injury'],      # S
-            self.weekly_rankings_col_map['games_missed_ir'],          # T
-            self.weekly_rankings_col_map['total_games_missed'],       # U
-            self.weekly_rankings_col_map['lost_points_injury'],       # V
-            self.weekly_rankings_col_map['lost_points_ir'],           # W
-            self.weekly_rankings_col_map['total_lost_points'],        # X
-        ]
-
-        bold_min_cols = [
-            self.weekly_rankings_col_map['pa'],                       # J
-        ]
 
         # Highlight winner rows
         self.apply_highlight_win_rows(worksheet, num_cols, end_row=last_row)
@@ -709,21 +678,16 @@ class GoogleSheetsExporter:
             week_start_row = self.data_start_row + (week * num_teams)
 
             for col in range(color_scale_start_col, num_cols+1):
-                if col in color_scale_full_col_cols: continue
-
                 inverse = col in color_scale_inverse_cols
-                self.apply_color_scale(worksheet, start_row=week_start_row, end_row=week_start_row + num_teams,
-                                       start_col=col, end_col=col+1, inverse=inverse)
+                start_row = self.data_start_row if col in color_scale_full_col_cols else week_start_row
+                end_row = last_row if col in color_scale_full_col_cols else week_start_row + num_teams
 
-        # Color scales for full col
-        for col in color_scale_full_col_cols:
-            inverse = col in color_scale_inverse_cols
-            self.apply_color_scale(worksheet, start_row=self.data_start_row, end_row=last_row,
-                                    start_col=col, end_col=col+1, inverse=inverse)
+                self.apply_color_scale(worksheet, start_row=start_row, end_row=end_row,
+                                       start_col=col, end_col=col+1, inverse=inverse)
             
         # Add borders
-        for col in (['rank', 'games_missed_injury', 'cumulative_games_missed_injury']):
-            self.apply_col_border(worksheet, self.weekly_rankings_col_map[col], 1, last_row)
+        for col in vertical_borders:
+            self.apply_col_border(worksheet, col, 1, last_row)
         self.apply_row_border(worksheet, last_row, 1, num_cols)
 
 class AuthenticationError(Exception):
