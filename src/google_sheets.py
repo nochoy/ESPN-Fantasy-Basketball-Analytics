@@ -6,7 +6,7 @@ Handles exporting fantasy data to Google Sheets
 import os
 import pandas as pd
 from datetime import date
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import gspread
 from gspread.utils import rowcol_to_a1
 from google.oauth2.service_account import Credentials
@@ -371,14 +371,14 @@ class GoogleSheetsExporter:
         
         print("  ✓ Overview page created with changelog, features, and documentation")
 
-    def _build_col_map(self, df: pd.DataFrame) -> dict[str, int]:
+    def _build_col_map(self, df: pd.DataFrame) -> Dict[str, int]:
         """
         Create mapping of column_name -> 1-based column index (Google Sheets style)
         """
 
         return {col: i+1 for i, col in enumerate(df.columns)}
     
-    def _col_names_to_nums(self, col_map: Dict[str, int], col_names: list[str]) -> list[int]:
+    def _col_names_to_nums(self, col_map: Dict[str, int], col_names: List[str]) -> List[int]:
         """
         Return list of column numbers from column names
         
@@ -405,8 +405,8 @@ class GoogleSheetsExporter:
 
     def apply_color_scale(self, worksheet: gspread.Worksheet, 
                           start_row: int = 1, end_row: int = 1, start_col: int = 1, end_col: int = 1, 
-                          min_color: Optional[dict] = None, mid_color: Optional[dict] = None, 
-                          max_color: Optional[dict] = None, inverse: bool = False):
+                          min_color: Optional[Dict[str, int]] = None, mid_color: Optional[Dict[str, int]] = None, 
+                          max_color: Optional[Dict[str, int]] = None, inverse: bool = False):
         """
         Apply color scale conditional formatting, with min=green, max=red by default
         
@@ -609,7 +609,34 @@ class GoogleSheetsExporter:
 
         self.format_requests.append(request)
 
-    def format_standings(self, worksheet: gspread.Worksheet, num_teams, num_cols):
+    def resize_cols(self, worksheet: gspread.Worksheet, column_widths: Dict[int, int]):
+        """
+         Resize specified columns with the provided column widths
+        
+         Args:
+             worksheet: gspread worksheet
+             column_widths: mapping of column nums to pixel widths
+         """
+        
+        for col, width in column_widths.items():
+            request = {
+                "updateDimensionProperties": {
+                    "range": {
+                        "sheetId": worksheet.id,
+                        "dimension": "COLUMNS",
+                        "startIndex": col-1,
+                        "endIndex": col,
+                    },
+                    "properties": {
+                        "pixelSize": width,
+                    },
+                    "fields": "pixelSize",
+                }
+            }
+
+            self.format_requests.append(request)
+
+    def format_standings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int):
         """
         Apply custom Google Sheet formatting rules on the Standings page.
         
@@ -622,6 +649,7 @@ class GoogleSheetsExporter:
         bold_min_cols = self._col_names_to_nums(self.standings_col_map, STANDINGS_FORMATTING['bold_min_cols'])
         color_scale_inverse_cols = self._col_names_to_nums(self.standings_col_map, STANDINGS_FORMATTING['color_scale_inverse_cols'])
         vertical_borders = self._col_names_to_nums(self.standings_col_map, STANDINGS_FORMATTING['vertical_borders'])
+        col_resize_widths = { self.standings_col_map[col]: width for col, width in STANDINGS_FORMATTING['resize_cols'].items()}
 
         color_scale_start_col = self.standings_col_map['rank']  # C
         bold_extreme_start_col = self.standings_col_map['wins'] # D
@@ -643,8 +671,11 @@ class GoogleSheetsExporter:
         for col in vertical_borders:
             self.apply_col_border(worksheet, col, 1, num_teams + self.data_start_row)
         self.apply_row_border(worksheet, last_row, 1, num_cols)
+
+        # Resize columns
+        self.resize_cols(worksheet, col_resize_widths)
             
-    def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams, num_cols, num_weeks):
+    def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int, num_weeks: int):
         """
         Apply custom Google sheet formatting ruels on the Weekly Rankings Page
 
@@ -660,6 +691,7 @@ class GoogleSheetsExporter:
         bold_max_cols = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['bold_max_cols'])
         bold_min_cols = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['bold_min_cols'])
         vertical_borders = self._col_names_to_nums(self.weekly_rankings_col_map, WEEKLY_FORMATTING['vertical_borders'])
+        col_resize_widths = { self.weekly_rankings_col_map[col]: width for col, width in WEEKLY_FORMATTING['resize_cols'].items()}
 
         color_scale_start_col = self.weekly_rankings_col_map['rank']    # E
         last_row = int(self.data_start_row + (num_weeks * num_teams))
@@ -689,6 +721,10 @@ class GoogleSheetsExporter:
         for col in vertical_borders:
             self.apply_col_border(worksheet, col, 1, last_row)
         self.apply_row_border(worksheet, last_row, 1, num_cols)
+
+
+        # Resize columns
+        self.resize_cols(worksheet, col_resize_widths)
 
 class AuthenticationError(Exception):
     """Custom exception for authentication errors"""
