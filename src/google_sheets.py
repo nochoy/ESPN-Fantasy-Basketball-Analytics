@@ -670,10 +670,15 @@ class GoogleSheetsExporter:
         Args:
             worksheet: gspread worksheet
             axis: row (0) or column (1) axis 
-            index: row number or column number (1-based indexing)
+            index: row number or column number (1-based , A=1, C=3)
         """
 
-        dimension = "ROWS" if axis == 0 else "COLUMNS"
+        if axis == 0:
+            dimension = "ROWS"
+        elif axis == 1:
+            dimension = "COLUMNS"
+        else: 
+            return
 
         request = {
             "autoResizeDimensions": {
@@ -686,6 +691,45 @@ class GoogleSheetsExporter:
             }
         }
         
+        self.format_requests.append(request)
+
+    def set_text_wrap(self, worksheet: gspread.Worksheet, text_wrap: int, start_row: int, end_row: int, start_col: int, end_col: int):
+        """
+        Set text wrapping to overflow (0), wrap (1), or clip (2) of selected rows or columns
+
+        Args:
+            text_wrap: overflow (0), wrap (1), or clip (2)
+            start_row, end_row: row indices (1-based)
+            start_col, end_col: col indices (1-based)
+        """
+
+        if text_wrap == 0:
+            wrap_strategy = "OVERFLOW"
+        elif text_wrap == 1:
+            wrap_strategy = "WRAP"
+        elif text_wrap == 2:
+            wrap_strategy = "CLIP"
+        else:
+            return
+        
+        request = {
+            "repeatCell": {
+                "range": {
+                    "sheetId": worksheet.id,
+                    "startRowIndex": start_row - 1,
+                    "endRowIndex": end_row,
+                    "startColumnIndex": start_col - 1,
+                    "endColumnIndex": end_col,
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "wrapStrategy": wrap_strategy
+                    }
+                },
+                "fields": "userEnteredFormat.wrapStrategy"
+            }        
+        }
+
         self.format_requests.append(request)
 
     def format_standings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int):
@@ -728,6 +772,9 @@ class GoogleSheetsExporter:
         self.resize_cols(worksheet, col_resize_widths)
         self.auto_resize(worksheet, 0, 1)
         self.auto_resize(worksheet, 0, 2)
+
+        # Set column headers text wrap strategy to wrap 
+        self.set_text_wrap(worksheet, 1, self.data_start_row-1, self.data_start_row, 1, num_cols)
             
     def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int, num_weeks: int):
         """
@@ -781,6 +828,10 @@ class GoogleSheetsExporter:
         self.resize_cols(worksheet, col_resize_widths)
         self.auto_resize(worksheet, 0, 1)
         self.auto_resize(worksheet, 0, 2)
+
+        # Set column headers text wrap strategy to wrap 
+        self.set_text_wrap(worksheet, 1, self.data_start_row-1, self.data_start_row, 1, num_cols)
+
 
 class AuthenticationError(Exception):
     """Custom exception for authentication errors"""
