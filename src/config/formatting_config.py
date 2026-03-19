@@ -115,8 +115,8 @@ WEEKLY_FORMATTING = {
     "cumulative_games_missed_injury": 108,
     "cumulative_games_missed_ir": 108,
     "cumulative_total_games_missed": 106,
-    "cumulative_lost_points_injury": 106,
-    "cumulative_lost_points_ir": 106,
+    "cumulative_lost_points_injury": 104,
+    "cumulative_lost_points_ir": 104,
     "cumulative_total_lost_points": 98,
   },
 }
