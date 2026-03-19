@@ -695,7 +695,7 @@ class GoogleSheetsExporter:
 
     def set_text_wrap(self, worksheet: gspread.Worksheet, text_wrap: int, start_row: int, end_row: int, start_col: int, end_col: int):
         """
-        Set text wrapping to overflow (0), wrap (1), or clip (2) of selected rows or columns
+        Set text wrapping strategy to overflow (0), wrap (1), or clip (2) of selected range
 
         Args:
             text_wrap: overflow (0), wrap (1), or clip (2)
@@ -717,9 +717,9 @@ class GoogleSheetsExporter:
                 "range": {
                     "sheetId": worksheet.id,
                     "startRowIndex": start_row - 1,
-                    "endRowIndex": end_row,
+                    "endRowIndex": end_row - 1,
                     "startColumnIndex": start_col - 1,
-                    "endColumnIndex": end_col,
+                    "endColumnIndex": end_col - 1,
                 },
                 "cell": {
                     "userEnteredFormat": {
@@ -728,6 +728,82 @@ class GoogleSheetsExporter:
                 },
                 "fields": "userEnteredFormat.wrapStrategy"
             }        
+        }
+
+        self.format_requests.append(request)
+
+    def set_alignment(self, worksheet: gspread.Worksheet, axis: int, align: int, start_row: int, end_row: int, start_col: int, end_col: int):
+        """
+        Set horizontal or vertical alignment strategy
+        
+        Args:
+            axis: horizontal (0), vertical (1)
+            align: left/top (0), center/middle (1), right/bottom (2)
+            start_row, end_row: row indices (1-based)
+            start_col, end_col: col indices (1-based)
+        """
+
+        if axis < 0 or axis > 1 or align < 0 or align > 2:
+            return
+
+        if align == 0:
+            alignment_strategy = "LEFT" if axis == 0 else "TOP"
+        elif align == 1:
+            alignment_strategy = "CENTER" if axis == 0 else "MIDDLE"
+        else:
+            alignment_strategy = "RIGHT" if axis == 0 else "BOTTOM"
+        
+        request = {
+            "repeatCell": {
+                "range": {
+                    "sheetId": worksheet.id,
+                    "startRowIndex": start_row - 1,
+                    "endRowIndex": end_row - 1,
+                    "startColumnIndex": start_col - 1,
+                    "endColumnIndex": end_col - 1,
+                },
+            }
+        }
+
+        if axis == 0:   # horizontal alignment
+            request['repeatCell']['cell'] =  {
+                    "userEnteredFormat": {
+                        "horizontalAlignment": alignment_strategy,
+                    }
+                }
+            request['repeatCell']['fields'] = "userEnteredFormat(horizontalAlignment)"
+        else:           # vertical alignment
+            request['repeatCell']['cell'] =  {
+                    "userEnteredFormat": {
+                        "verticalAlignment": alignment_strategy,
+                    }
+                }
+            request['repeatCell']['fields'] = "userEnteredFormat(verticalAlignment)"
+
+        print("*****request: ", request)
+        
+        self.format_requests.append(request)
+
+    def merge_cells(self, worksheet: gspread.Worksheet, start_row: int, end_row: int, start_col: int, end_col: int):
+        """
+        Merge selected cells
+
+        Args:
+            start_row, end_row: row indices (1-based)
+            start_col, end_col: col indices (1-based)
+        """
+
+        request = {
+            "mergeCells": {
+                "range": {
+                    "sheetId": worksheet.id,
+                    "startRowIndex": start_row - 1,
+                    "endRowIndex": end_row - 1,
+                    "startColumnIndex": start_col - 1,
+                    "endColumnIndex": end_col - 1,
+                },
+                "mergeType": "MERGE_ALL"
+            }
         }
 
         self.format_requests.append(request)
@@ -747,9 +823,12 @@ class GoogleSheetsExporter:
         vertical_borders = self._col_names_to_nums(self.standings_col_map, STANDINGS_FORMATTING['vertical_borders'])
         col_resize_widths = { self.standings_col_map[col]: width for col, width in STANDINGS_FORMATTING['resize_cols'].items()}
 
-        color_scale_start_col = self.standings_col_map['rank']  # C
-        bold_extreme_start_col = self.standings_col_map['wins'] # D
+        color_scale_start_col = self.standings_col_map['rank']
+        bold_extreme_start_col = self.standings_col_map['wins']
         last_row = self.data_start_row + num_teams
+        sos_col = self.standings_col_map['avg_opponent_rank']
+        first_injury_stat_col = self.standings_col_map['games_missed_injury']
+        first_avg_injury_stat_col = self.standings_col_map['avg_games_missed_injury']
 
         # Bold min/max columns values
         for col in range(bold_extreme_start_col, num_cols+1):
@@ -765,16 +844,30 @@ class GoogleSheetsExporter:
             
         # Add borders
         for col in vertical_borders:
-            self.apply_col_border(worksheet, col, 1, num_teams + self.data_start_row)
-        self.apply_row_border(worksheet, last_row, 1, num_cols)
+            self.apply_col_border(worksheet, col=col, start_row=1, end_row=num_teams + self.data_start_row)
+        self.apply_row_border(worksheet, row=last_row, start_col=1, end_col=num_cols)
 
         # Resize columns
         self.resize_cols(worksheet, col_resize_widths)
-        self.auto_resize(worksheet, 0, 1)
-        self.auto_resize(worksheet, 0, 2)
+        self.auto_resize(worksheet, axis=0, index=1)
+        self.auto_resize(worksheet, axis=0, index=2)
 
         # Set column headers text wrap strategy to wrap 
-        self.set_text_wrap(worksheet, 1, self.data_start_row-1, self.data_start_row, 1, num_cols)
+        self.set_text_wrap(worksheet, text_wrap=1, start_row=self.data_start_row-1, end_row=self.data_start_row, start_col=1, end_col=num_cols)
+
+        # Create info header rows
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=sos_col, end_col=self.standings_col_map['cumulative_pa_rank']+1)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_injury_stat_col, end_col=first_avg_injury_stat_col)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_avg_injury_stat_col, end_col=num_cols+1)
+
+        self.set_alignment(worksheet, axis=0, align=1, start_row=1, end_row=2, start_col=4, end_col=num_cols+1)
+        self.set_alignment(worksheet, axis=1, align=1, start_row=1, end_row=2, start_col=1, end_col=num_cols+1)
+
+        worksheet.update(rowcol_to_a1(1, 3), [['<- Change Sorted View on Desktop (Rank is default)']])
+        worksheet.update(rowcol_to_a1(1, sos_col), [['Strength of Schedule (SoS)']])
+        worksheet.update(rowcol_to_a1(1, first_injury_stat_col), [['Total Injury Stats']])
+        worksheet.update(rowcol_to_a1(1, first_avg_injury_stat_col), [['Average Injury Stats Per Week']])
+
             
     def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int, num_weeks: int):
         """
@@ -796,6 +889,9 @@ class GoogleSheetsExporter:
 
         color_scale_start_col = self.weekly_rankings_col_map['rank']    # E
         last_row = int(self.data_start_row + (num_weeks * num_teams))
+        sos_col = self.weekly_rankings_col_map['cumulative_pa_rank']
+        first_injury_stat_col = self.weekly_rankings_col_map['games_missed_injury']
+        first_cum_injury_stat_col = self.weekly_rankings_col_map['cumulative_games_missed_injury']
 
         # Highlight winner rows
         self.apply_highlight_win_rows(worksheet, num_cols, end_row=last_row)
@@ -820,17 +916,30 @@ class GoogleSheetsExporter:
             
         # Add borders
         for col in vertical_borders:
-            self.apply_col_border(worksheet, col, 1, last_row)
-        self.apply_row_border(worksheet, last_row, 1, num_cols)
+            self.apply_col_border(worksheet, col=col, start_row=1, end_row=last_row)
+        self.apply_row_border(worksheet, row=last_row, start_col=1, end_col=num_cols)
 
 
         # Resize columns
         self.resize_cols(worksheet, col_resize_widths)
-        self.auto_resize(worksheet, 0, 1)
-        self.auto_resize(worksheet, 0, 2)
+        self.auto_resize(worksheet, axis=0, index=1)
+        self.auto_resize(worksheet, axis=0, index=2)
 
         # Set column headers text wrap strategy to wrap 
-        self.set_text_wrap(worksheet, 1, self.data_start_row-1, self.data_start_row, 1, num_cols)
+        self.set_text_wrap(worksheet, text_wrap=1, start_row=self.data_start_row-1, end_row=self.data_start_row, start_col=1, end_col=num_cols+1)
+
+        # Create info header rows
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_injury_stat_col, end_col=first_cum_injury_stat_col)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_cum_injury_stat_col, end_col=num_cols+1)
+
+        self.set_alignment(worksheet, axis=0, align=2, start_row=1, end_row=2, start_col=sos_col, end_col=sos_col+1)
+        self.set_alignment(worksheet, axis=0, align=1, start_row=1, end_row=2, start_col=first_injury_stat_col, end_col=num_cols+1)
+        self.set_alignment(worksheet, axis=1, align=1, start_row=1, end_row=2, start_col=1, end_col=num_cols+1)
+        
+        worksheet.update(rowcol_to_a1(1, 3), [['<- Change Grouped View on Desktop (Week is default)']])
+        worksheet.update(rowcol_to_a1(1, sos_col), [['Strength of Schedule (SoS)']])
+        worksheet.update(rowcol_to_a1(1, first_injury_stat_col), [['Weekly Total Injury Stats']])
+        worksheet.update(rowcol_to_a1(1, first_cum_injury_stat_col), [['Cumulative Injury Stats']])
 
 
 class AuthenticationError(Exception):
