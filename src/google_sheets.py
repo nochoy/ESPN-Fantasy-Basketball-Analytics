@@ -636,6 +636,58 @@ class GoogleSheetsExporter:
 
             self.format_requests.append(request)
 
+    def resize_rows(self, worksheet: gspread.Worksheet, row_heights: Dict[int, int]):
+        """
+         Resize specified columns with the provided column heights
+        
+         Args:
+             worksheet: gspread worksheet
+             row_heights: mapping of row nums to pixel heights
+         """
+        
+        for row, height in row_heights.items():
+            request = {
+                "updateDimensionProperties": {
+                    "range": {
+                        "sheetId": worksheet.id,
+                        "dimension": "ROWS",
+                        "startIndex": row-1,
+                        "endIndex": row,
+                    },
+                    "properties": {
+                        "pixelSize": height,
+                    },
+                    "fields": "pixelSize",
+                }
+            }
+
+            self.format_requests.append(request)
+
+    def auto_resize(self, worksheet: gspread.Worksheet, axis: int, index: int):
+        """
+        Auto resize row or column to fit to data
+
+        Args:
+            worksheet: gspread worksheet
+            axis: row (0) or column (1) axis 
+            index: row number or column number (1-based indexing)
+        """
+
+        dimension = "ROWS" if axis == 0 else "COLUMNS"
+
+        request = {
+            "autoResizeDimensions": {
+                "dimensions": {
+                    "sheetId": worksheet.id,
+                    "dimension": dimension,
+                    "startIndex": index-1,
+                    "endIndex": index,
+                }
+            }
+        }
+        
+        self.format_requests.append(request)
+
     def format_standings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int):
         """
         Apply custom Google Sheet formatting rules on the Standings page.
@@ -674,6 +726,8 @@ class GoogleSheetsExporter:
 
         # Resize columns
         self.resize_cols(worksheet, col_resize_widths)
+        self.auto_resize(worksheet, 0, 1)
+        self.auto_resize(worksheet, 0, 2)
             
     def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int, num_weeks: int):
         """
@@ -725,6 +779,8 @@ class GoogleSheetsExporter:
 
         # Resize columns
         self.resize_cols(worksheet, col_resize_widths)
+        self.auto_resize(worksheet, 0, 1)
+        self.auto_resize(worksheet, 0, 2)
 
 class AuthenticationError(Exception):
     """Custom exception for authentication errors"""
