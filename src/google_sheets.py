@@ -808,6 +808,31 @@ class GoogleSheetsExporter:
 
         self.format_requests.append(request)
 
+    def freeze_headers(self, worksheet: gspread.Worksheet, rows: int, cols: int):
+        """
+        Freeze the specified number of rows and columns
+        
+        Args:
+            worksheet: gspread worksheet
+            rows: number of rows to freeze from the top
+            cols: number of cols to freeze from the bottom
+        """
+        
+        request = {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": worksheet.id,
+                    "gridProperties": {
+                        "frozenRowCount": rows,
+                        "frozenColumnCount": cols,
+                    }
+                },
+                "fields": "gridProperties.frozenRowCount, gridProperties.frozenColumnCount"
+            }
+        }
+
+        self.format_requests.append(request)
+
     def format_standings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int):
         """
         Apply custom Google Sheet formatting rules on the Standings page.
@@ -868,6 +893,8 @@ class GoogleSheetsExporter:
         worksheet.update(rowcol_to_a1(1, first_injury_stat_col), [['Total Injury Stats']])
         worksheet.update(rowcol_to_a1(1, first_avg_injury_stat_col), [['Average Injury Stats Per Week']])
 
+        # Freze headers
+        self.freeze_headers(worksheet, rows=2, cols=1)
             
     def format_weekly_rankings(self, worksheet: gspread.Worksheet, num_teams: int, num_cols: int, num_weeks: int):
         """
@@ -940,6 +967,9 @@ class GoogleSheetsExporter:
         worksheet.update(rowcol_to_a1(1, sos_col), [['Strength of Schedule (SoS)']])
         worksheet.update(rowcol_to_a1(1, first_injury_stat_col), [['Weekly Total Injury Stats']])
         worksheet.update(rowcol_to_a1(1, first_cum_injury_stat_col), [['Cumulative Injury Stats']])
+
+        # Freze headers
+        self.freeze_headers(worksheet, rows=2, cols=2)
 
 
 class AuthenticationError(Exception):
