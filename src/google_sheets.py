@@ -179,7 +179,8 @@ class GoogleSheetsExporter:
 
         # Merge data into one sheet
         standings_and_injury_df = pd.merge(standings, injury_standings, on=['team_id', 'team_name'], how='outer')
-        full_standings_df = pd.merge(standings_and_injury_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
+        standings_and_efficiency_df = pd.merge(standings_and_injury_df, self.stats['efficiency_summary'], on=['team_id', 'team_name'], how='outer')
+        full_standings_df = pd.merge(standings_and_efficiency_df, toughness_standings, on=['team_id', 'team_name'], how='outer')
 
         # Reorder columns
         full_standings_df_col_order = [
@@ -189,7 +190,11 @@ class GoogleSheetsExporter:
             'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
             'lost_points_injury', 'lost_points_ir', 'total_lost_points', 
             'avg_games_missed_injury', 'avg_games_missed_ir', 'avg_total_games_missed', 
-            'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points'
+            'avg_lost_points_injury', 'avg_lost_points_ir', 'avg_total_lost_points',
+            'player_games', 'bench_games', 'ir_games', 'total_missed_games',
+            'bench_points_lost', 'ir_points_lost', 'total_points_lost',
+            'avg_player_games', 'avg_bench_games', 'avg_ir_games', 'avg_total_missed_games',
+            'avg_bench_points_lost', 'avg_ir_points_lost', 'avg_total_points_lost',
         ]
         full_standings_df = full_standings_df[full_standings_df_col_order].sort_values('rank')
 
@@ -211,7 +216,8 @@ class GoogleSheetsExporter:
 
         # Merge datra into one sheet
         weekly_and_cumulative_df = pd.merge(weekly_rankings, cumulative_stats, on=['week', 'team_id', 'team_name'], how='outer')
-        full_weekly_rankings_df = pd.merge(weekly_and_cumulative_df, injury_weekly, on=['week', 'team_id', 'team_name'], how='outer')
+        weekly_and_efficiency_df = pd.merge(weekly_and_cumulative_df, self.stats['efficiency_stats'], on=['week', 'team_id', 'team_name'], how='outer')
+        full_weekly_rankings_df = pd.merge(weekly_and_efficiency_df, injury_weekly, on=['week', 'team_id', 'team_name'], how='outer')
 
         # Reorder columns
         master_weekly_col_order = [
@@ -221,7 +227,9 @@ class GoogleSheetsExporter:
             'games_missed_injury', 'games_missed_ir', 'total_games_missed', 
             'lost_points_injury', 'lost_points_ir', 'total_lost_points', 
             'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 
-            'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points'
+            'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points',
+            'player_games', 'bench_games', 'ir_games', 'total_missed_games',
+            'bench_points_lost', 'ir_points_lost', 'total_points_lost',
         ]
         full_weekly_rankings_df = full_weekly_rankings_df[master_weekly_col_order]
 
@@ -245,7 +253,7 @@ class GoogleSheetsExporter:
 
         # Compile Standings page stats, export to Google sheet, and add formatting rules
         full_standings_df = self._compile_standings_df()
-        standings_ws = self.create_worksheet('Standings', len(full_standings_df)+2, len(full_standings_df.columns))
+        standings_ws = self.create_worksheet('Standings', len(full_standings_df)+self.data_start_row, len(full_standings_df.columns))
         self.write_dataframe(standings_ws, full_standings_df, start_cell='A2')
         self.format_standings(standings_ws, len(full_standings_df), len(full_standings_df.columns))
 
@@ -253,7 +261,7 @@ class GoogleSheetsExporter:
         
         # Compile Weekly Rankings page stats, export to Google sheet, and apply formatting
         full_weekly_rankings_df = self._compile_weekly_rankings_df()
-        ws_weekly = self.create_worksheet('Weekly Rankings', len(full_weekly_rankings_df)+2, len(full_weekly_rankings_df.columns))
+        ws_weekly = self.create_worksheet('Weekly Rankings', len(full_weekly_rankings_df)+self.data_start_row, len(full_weekly_rankings_df.columns))
         self.write_dataframe(ws_weekly, full_weekly_rankings_df, start_cell='A2')
         self.format_weekly_rankings(ws_weekly, len(full_standings_df), len(full_weekly_rankings_df.columns), full_weekly_rankings_df['week'].max())
 
@@ -273,11 +281,11 @@ class GoogleSheetsExporter:
             ws = self.sheet.worksheet('Overview')
             ws.clear()
         except gspread.WorksheetNotFound:
-            ws = self.sheet.add_worksheet('Overview', rows=50, cols=13)
+            ws = self.sheet.add_worksheet('Overview', rows=55, cols=13)
                 
         left_data = []      # columns A-G
         right_data = []     # columns H-J
-        version = 1.0
+        version = 1.1
         today = date.today()
         
         # Welcome
@@ -290,8 +298,8 @@ class GoogleSheetsExporter:
 
         left_data.append(['', '', '', '', '', '', ''])
         # SHEET OVERVIEW
-        left_data.append(['📊 SHEET OVERVIEW', '', '', '', '', '', ''])
-        left_data.append(['Sheet Name', 'Description', '', '', '', '', ''])
+        left_data.append(['📊 SHEET OVERVIEW', '', '', '', '', '', ''])     # col A
+        left_data.append(['Sheet Name', 'Description', '', '', '', '', '']) # cols A, B
         left_data.append(['Standings', 'Current league standings with season-long aggregated stats.', '', '', '', '', ''])
         left_data.append(['Weekly Rankings', 'Week-by-week breakdown for each team', '', '', '', '', ''])
         left_data.append(['', '', '', '', '', '', ''])
@@ -299,16 +307,17 @@ class GoogleSheetsExporter:
         left_data.append(['', '', '', '', '', '', ''])
         
         # CHANGE LOG
-        right_data.append(['📝 CHANGE LOG', '', '', '', ''])
-        right_data.append(['Date', 'Version', 'Changes', '', ''])
+        right_data.append(['📝 CHANGE LOG', '', '', '', ''])        # col H
+        right_data.append(['Date', 'Version', 'Changes', '', ''])   # cols H, I, J
         right_data.append(['2026-02-27', 0.1, 'Finished adding conditional formatting rules', '', ''])
-        right_data.append([str(today), str(version), 'Initial release with Overview, Standings, and Weekly Rankings pages', '', ''])
+        right_data.append(['2026-03-01', 1.0, 'Initial release with Overview, Standings, and Weekly Rankings pages', '', ''])
+        right_data.append([str(today), str(version), 'Added Lineup Efficiency stats, including points lost to players left on BE/IR', '', ''])
         right_data.append(['', '', '', '', '', '', ''])
         
         # FEATURES TO ADD
-        right_data.append(['🚀 STATS/FEATURES TO ADD', '', '', '', ''])
+        right_data.append(['🚀 STATS/FEATURES TO ADD', '', '', '', '']) # col H
         right_data.append(['Win/loss margins (differential)'])
-        right_data.append(['Games played'])
+        right_data.append(['✅ Games played'])
         right_data.append(['Avg PF/PA for wins/losses'])
         right_data.append(['Potential wins (add lost points due to benched players and/or injured players)'])
         right_data.append(['Experiments (if players were healthy, if didnt leave player on bench, if had easiest schedule, etc.)'])
@@ -318,25 +327,30 @@ class GoogleSheetsExporter:
         
         # KEY METRICS EXPLAINED
         left_data.append(['🔍 KEY METRICS EXPLAINED', '', '', '', ''])
-        left_data.append(['Column', 'Description', '', '', '', 'How It\'s Calculated', '', '']) # col A, B, F
+        left_data.append(['Column', '', 'Description', '', '', '', 'How It\'s Calculated', '', '']) # col A, C, G
 
-        left_data.append(['rank', 'Current standing in the league', '', '', '', 'Based on wins, then total points for PF (ESPN does wins -> H2H matchups -> PF)', '', ''])
-        left_data.append(['total_pf', 'Total points scored', '', '', '', 'Sum of all fantasy points scored across all weeks', '', ''])
-        left_data.append(['total_pa', 'Total points opponents\' scored against', '', '', '', 'Sum of all fantasy points scored against you', '', ''])
-        left_data.append(['differential', 'Point differential', '', '', '', 'total_pf - total_pa (positive = scoring more than allowing)', '', ''])
-        left_data.append(['avg_opponent_rank', 'Average opponent rank in standings', '', '', '', 'Average rank of opponents faced, based on latest standings (lower = tougher schedule)', '', ''])
-        left_data.append(['cumulative_pa_rank', 'Running average of pa rank', '', '', '', 'Running average of opponent\'s PF rank for each week (lower = tougher schedule, stronger indicator of Strength of Schedule (Sos))', '', ''])
-        left_data.append(['cumulative_pf_rank', 'Running average of pf rank', '', '', '', 'Running average of PF rank for each week', '', ''])
-        left_data.append(['games_missed_injury', 'Number of games missed due to injury, NOT including IR', '', '', '', 'Checks if player had scheduled opponent + scored 0 FPTS + recorded no stats (counts DNPs) + not on IR', '', ''])
-        left_data.append(['games_missed_r', 'Number of games missed due to injury ON IR', '', '', '', 'Checks if player had scheduled opponent + scored 0 FPTS + recorded no stats (counts DNPs) + on IR', '', ''])
-        left_data.append(['total_games_missed', 'Total number of games missed due to injury', '', '', '', 'Sum of games_missed_injury + games_missed_ir', '', ''])
-        left_data.append(['lost_points_injury', 'Potential points lost due to player being injured, NOT on IR', '', '', '', 'Based on player\'s average FPTS on the season', '', ''])
-        left_data.append(['lost_points_ir', 'Potential points lost due to player being injured, ON IR', '', '', '', 'Based on player\'s average FPTS on the season', '', ''])
-        left_data.append(['total_lost_points', 'Total potential points lost due to player being injured', '', '', '', 'Sum of lost_points_injury + lost_points_ir', '', ''])
-        left_data.append(['avg_total_games_missed', 'Average games missed due to injury', '', '', '', 'total_games_missed divided by the number of weeks', '', ''])
-        left_data.append(['avg_total_lost_points', 'Average potential points lost due to injury', '', '', '', 'total_lost_points divided by the number of weeks', '', ''])
-        left_data.append(['cumulative_total_games_missed', 'Cumulative total of games missed due to injury', '', '', '', 'Sum of total_games_missed up to that week', '', ''])
-        left_data.append(['cumulative_total_lost_points', 'Cumulative total of potential points lost due to injury', '', '', '', 'Sum of total_lost_points up to that week', '', ''])
+        left_data.append(['rank', '', 'Current standing in the league', '', '', '', 'Based on wins, then total points for PF (ESPN does wins -> H2H matchups -> PF)', '', ''])
+        left_data.append(['total_pf', '', 'Total points scored', '', '', '', 'Sum of all fantasy points scored across all weeks', '', ''])
+        left_data.append(['total_pa', '', 'Total points opponents\' scored against', '', '', '', 'Sum of all fantasy points scored against you', '', ''])
+        left_data.append(['differential', '', 'Point differential', '', '', '', 'total_pf - total_pa (positive = scoring more than allowing)', '', ''])
+        left_data.append(['avg_opponent_rank', '', 'Average opponent rank in standings', '', '', '', 'Average rank of opponents faced, based on latest standings (lower = tougher schedule)', '', ''])
+        left_data.append(['cumulative_pa_rank', '', 'Running average of pa rank', '', '', '', 'Running average of opponent\'s PF rank for each week (lower = tougher schedule, stronger indicator of Strength of Schedule (Sos))', '', ''])
+        left_data.append(['cumulative_pf_rank', '', 'Running average of pf rank', '', '', '', 'Running average of PF rank for each week', '', ''])
+        left_data.append(['games_missed_injury', '', 'Number of games missed due to injury, NOT including IR', '', '', '', 'Checks if player had scheduled opponent + scored 0 FPTS + recorded no stats (counts DNPs) + not on IR', '', ''])
+        left_data.append(['games_missed_r', '', 'Number of games missed due to injury ON IR', '', '', '', 'Checks if player had scheduled opponent + scored 0 FPTS + recorded no stats (counts DNPs) + on IR', '', ''])
+        left_data.append(['total_games_missed', '', 'Total number of games missed due to injury', '', '', '', 'Sum of games_missed_injury + games_missed_ir', '', ''])
+        left_data.append(['lost_points_injury', '', 'Potential points lost due to player being injured, NOT on IR', '', '', '', 'Based on player\'s average FPTS on the season', '', ''])
+        left_data.append(['lost_points_ir', '', 'Potential points lost due to player being injured, ON IR', '', '', '', 'Based on player\'s average FPTS on the season', '', ''])
+        left_data.append(['total_lost_points', '', 'Total potential points lost due to player being injured', '', '', '', 'Sum of lost_points_injury + lost_points_ir', '', ''])
+        left_data.append(['avg_total_games_missed', '', 'Average games missed due to injury', '', '', '', 'total_games_missed divided by the number of weeks', '', ''])
+        left_data.append(['avg_total_lost_points', '', 'Average potential points lost due to injury', '', '', '', 'total_lost_points divided by the number of weeks', '', ''])
+        left_data.append(['cumulative_total_games_missed', '', 'Cumulative total of games missed due to injury', '', '', '', 'Sum of total_games_missed up to that week', '', ''])
+        left_data.append(['cumulative_total_lost_points', '', 'Cumulative total of potential points lost due to injury', '', '', '', 'Sum of total_lost_points up to that week', '', ''])
+        left_data.append(['player_games', '', 'Number of active player games that are starting', '', '', '', 'Numbers of starters with points > 0', '', ''])
+        left_data.append(['bench_games', '', 'Number of active player games that are left on the bench', '', '', '', 'Numbers of players left on bench with points > 0, if have available starter slots', '', ''])
+        left_data.append(['ir_games', '', 'Number of active player games that are starting', '', '', '', 'Numbers of players left on IR with points > 0, if have available starter slots', '', ''])
+        left_data.append(['bench_points_lost', '', 'Points lost due to player being left on the bench', '', '', '', 'If player on bench has points > 0 and have available starter slots', '', ''])
+        left_data.append(['ir_points_lost', '', 'Points lost due to player being left on IR', '', '', '', 'If player on IR has points > 0 and have available starter slots', '', ''])
         left_data.append(['', '', '', '', '', '', ''])
 
         
@@ -350,7 +364,7 @@ class GoogleSheetsExporter:
         left_data.append(['- SoS - cumulative_pa_rank is a strong indicator of schedule difficulty as it includes week-by-week context', '', '', '', '', '', ''])
         left_data.append(['- Color scales are added for context, making it easier to compare stats and view change over the course of the season. Green indicates favorable data for the player (higher PF, lower PA, less injuries, lower SoS, etc.)', '', '', '', '', '', ''])
         left_data.append(['- Color scales are independent for each week, except for rank, pf_rank, pa_rank, cumulative_pf_rank, cumulative_pa_rank (color scale used for entire col)', '', '', '', '', '', ''])
-        left_data.append(['- Bolded stats indicate column max', '', '', '', '', '', ''])
+        left_data.append(['- Bolded stats indicate column max (or min for a few cols)', '', '', '', '', '', ''])
         left_data.append(['- Green highlighed teams (leftmost col) in Weekly Rankings indicate a win for that week', '', '', '', '', '', ''])
         left_data.append(['- Add comments for suggestions or fixes', '', '', '', '', '', ''])
         left_data.append(['', '', '', '', '', '', ''])
@@ -360,16 +374,19 @@ class GoogleSheetsExporter:
         ws.update('H1', right_data)
         
         # Format headers
-        header_rows = ['A1', 'A8', 'A15', 'A35', 'H1', 'H6']
+        header_rows = ['A1', 'A8', 'A15', 'A40', 'H1', 'H7']
         for cell in header_rows:
             ws.format(cell, {'textFormat': {'bold': True, 'fontSize': 12}})
 
         # Format subheaders
-        bolded_cells = ['A9', 'A10', 'A11', 'B9', 'A16', 'B16', 'E16', 'H2', 'I2', 'J2', ]
+        bolded_cells = ['A9', 'A10', 'A11', 'B9', 'A16', 'C16', 'G16', 'H2', 'I2', 'J2', ]
         for cell in bolded_cells:
             ws.format(cell, {'textFormat': {'bold': True}})
         
         print("  ✓ Overview page created with changelog, features, and documentation")
+
+
+
 
     def _build_col_map(self, df: pd.DataFrame) -> Dict[str, int]:
         """
@@ -779,8 +796,6 @@ class GoogleSheetsExporter:
                     }
                 }
             request['repeatCell']['fields'] = "userEnteredFormat(verticalAlignment)"
-
-        print("*****request: ", request)
         
         self.format_requests.append(request)
 
@@ -854,6 +869,10 @@ class GoogleSheetsExporter:
         sos_col = self.standings_col_map['avg_opponent_rank']
         first_injury_stat_col = self.standings_col_map['games_missed_injury']
         first_avg_injury_stat_col = self.standings_col_map['avg_games_missed_injury']
+        first_eff_stat_col = self.standings_col_map['player_games']
+        first_avg_eff_stat_col = self.standings_col_map['avg_player_games']
+
+        print("***NUM_COLS: ", num_cols)
 
         # Bold min/max columns values
         for col in range(bold_extreme_start_col, num_cols+1):
@@ -878,12 +897,14 @@ class GoogleSheetsExporter:
         self.auto_resize(worksheet, axis=0, index=2)
 
         # Set column headers text wrap strategy to wrap 
-        self.set_text_wrap(worksheet, text_wrap=1, start_row=self.data_start_row-1, end_row=self.data_start_row, start_col=1, end_col=num_cols)
+        self.set_text_wrap(worksheet, text_wrap=1, start_row=self.data_start_row-1, end_row=self.data_start_row, start_col=1, end_col=num_cols+1)
 
         # Create info header rows
         self.merge_cells(worksheet, start_row=1, end_row=2, start_col=sos_col, end_col=self.standings_col_map['cumulative_pa_rank']+1)
         self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_injury_stat_col, end_col=first_avg_injury_stat_col)
-        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_avg_injury_stat_col, end_col=num_cols+1)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_avg_injury_stat_col, end_col=first_eff_stat_col)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_eff_stat_col, end_col=first_avg_eff_stat_col)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_avg_eff_stat_col, end_col=num_cols+1)
 
         self.set_alignment(worksheet, axis=0, align=1, start_row=1, end_row=2, start_col=4, end_col=num_cols+1)
         self.set_alignment(worksheet, axis=1, align=1, start_row=1, end_row=2, start_col=1, end_col=num_cols+1)
@@ -892,6 +913,8 @@ class GoogleSheetsExporter:
         worksheet.update(rowcol_to_a1(1, sos_col), [['Strength of Schedule (SoS)']])
         worksheet.update(rowcol_to_a1(1, first_injury_stat_col), [['Total Injury Stats']])
         worksheet.update(rowcol_to_a1(1, first_avg_injury_stat_col), [['Average Injury Stats Per Week']])
+        worksheet.update(rowcol_to_a1(1, first_eff_stat_col), [['Lineup Efficiency']])
+        worksheet.update(rowcol_to_a1(1, first_avg_eff_stat_col), [['Average Lineup Efficiency Per Week']])
 
         # Freze headers
         self.freeze_headers(worksheet, rows=2, cols=1)
@@ -919,6 +942,9 @@ class GoogleSheetsExporter:
         sos_col = self.weekly_rankings_col_map['cumulative_pa_rank']
         first_injury_stat_col = self.weekly_rankings_col_map['games_missed_injury']
         first_cum_injury_stat_col = self.weekly_rankings_col_map['cumulative_games_missed_injury']
+        first_eff_stat_col = self.weekly_rankings_col_map['player_games']
+
+        print("***NUM_COLS: ", num_cols)
 
         # Highlight winner rows
         self.apply_highlight_win_rows(worksheet, num_cols, end_row=last_row)
@@ -946,18 +972,18 @@ class GoogleSheetsExporter:
             self.apply_col_border(worksheet, col=col, start_row=1, end_row=last_row)
         self.apply_row_border(worksheet, row=last_row, start_col=1, end_col=num_cols)
 
-
         # Resize columns
         self.resize_cols(worksheet, col_resize_widths)
-        self.auto_resize(worksheet, axis=0, index=1)
-        self.auto_resize(worksheet, axis=0, index=2)
+        self.auto_resize(worksheet, axis=0, index=1)    # First row
+        self.auto_resize(worksheet, axis=0, index=2)    # Second row
 
         # Set column headers text wrap strategy to wrap 
         self.set_text_wrap(worksheet, text_wrap=1, start_row=self.data_start_row-1, end_row=self.data_start_row, start_col=1, end_col=num_cols+1)
 
         # Create info header rows
         self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_injury_stat_col, end_col=first_cum_injury_stat_col)
-        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_cum_injury_stat_col, end_col=num_cols+1)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_cum_injury_stat_col, end_col=first_eff_stat_col)
+        self.merge_cells(worksheet, start_row=1, end_row=2, start_col=first_eff_stat_col, end_col=num_cols+1)
 
         self.set_alignment(worksheet, axis=0, align=2, start_row=1, end_row=2, start_col=sos_col, end_col=sos_col+1)
         self.set_alignment(worksheet, axis=0, align=1, start_row=1, end_row=2, start_col=first_injury_stat_col, end_col=num_cols+1)
@@ -967,6 +993,7 @@ class GoogleSheetsExporter:
         worksheet.update(rowcol_to_a1(1, sos_col), [['Strength of Schedule (SoS)']])
         worksheet.update(rowcol_to_a1(1, first_injury_stat_col), [['Weekly Total Injury Stats']])
         worksheet.update(rowcol_to_a1(1, first_cum_injury_stat_col), [['Cumulative Injury Stats']])
+        worksheet.update(rowcol_to_a1(1, first_eff_stat_col), [['Weekly Lineup Efficiency']])
 
         # Freze headers
         self.freeze_headers(worksheet, rows=2, cols=2)

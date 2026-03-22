@@ -8,6 +8,8 @@ STANDINGS_FORMATTING = {
       "cumulative_pa_rank",
       "avg_pf",
       "avg_differential",
+      "player_games",
+      "avg_player_games",
   ],
   "bold_min_cols": [
       "losses",
@@ -18,6 +20,8 @@ STANDINGS_FORMATTING = {
     "rank",
     "games_missed_injury",
     "avg_games_missed_injury",
+    'player_games',
+    'avg_player_games',
   ],
   "resize_cols": {
     "team_name": 160,
@@ -47,6 +51,20 @@ STANDINGS_FORMATTING = {
     "avg_lost_points_injury": 82,
     "avg_lost_points_ir": 82,
     "avg_total_lost_points": 87,
+    "player_games": 74,
+    "bench_games": 75,
+    "ir_games": 87,
+    "total_missed_games": 94,
+    "bench_points_lost": 75,
+    "ir_points_lost": 83,
+    "total_points_lost": 70,
+    "avg_player_games": 95,
+    "avg_bench_games": 96,
+    "avg_ir_games": 74,
+    "avg_total_missed_games": 86,
+    "avg_bench_points_lost": 101,
+    "avg_ir_points_lost": 74,
+    "avg_total_points_lost": 98,
   },
 }
 
@@ -67,6 +85,7 @@ WEEKLY_FORMATTING = {
     "cumulative_pf",
     "cumulative_differential",
     "cumulative_pa_rank",
+    "player_games",
   ],
   "bold_max_cols": [
     "wins",
@@ -85,7 +104,8 @@ WEEKLY_FORMATTING = {
   "vertical_borders": [
     "rank", 
     "games_missed_injury", 
-    "cumulative_games_missed_injury"
+    "cumulative_games_missed_injury",
+    "player_games", 
   ],
   "resize_cols": {
     "week": 64,
@@ -118,5 +138,12 @@ WEEKLY_FORMATTING = {
     "cumulative_lost_points_injury": 104,
     "cumulative_lost_points_ir": 104,
     "cumulative_total_lost_points": 98,
+    "player_games": 74,
+    "bench_games": 75,
+    "ir_games": 87,
+    "total_missed_games": 94,
+    "bench_points_lost": 75,
+    "ir_points_lost": 83,
+    "total_points_lost": 70,
   },
 }
