@@ -124,6 +124,12 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
         print("Cumulative Injury Stats:")
         print(injury_weekly[['week', 'team_id', 'team_name', 'cumulative_games_missed_injury', 'cumulative_games_missed_ir', 'cumulative_total_games_missed', 'cumulative_lost_points_injury', 'cumulative_lost_points_ir', 'cumulative_total_lost_points']].head(len(teams)).to_string(index=False))
 
+        print("\n📉 Lineup Efficiency Summary:")
+        print(stats['efficiency_summary'].to_string(index=False))
+
+        print("\n📊 Weekly Lineup Efficiency (Week 1 only):")
+        print(stats['efficiency_stats'].head(len(teams)).to_string(index=False))
+
     
     # Step 5: Export to Google Sheets
     if not skip_export:

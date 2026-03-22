@@ -140,6 +140,7 @@ class FantasyCalculator:
             DataFrame with injury statistics
         """
         injury_data = []
+        bronny_count = 0
 
         for matchup in self.matchups:
             week = matchup['week']
@@ -156,6 +157,9 @@ class FantasyCalculator:
 
                 for player in lineup:
                     if player['injured_game']:
+                        if player['name'] == "Bronny James":
+                            bronny_count += 1
+                            continue
                         if player['slot_position'] == 'IR':
                             games_missed_ir += 1
                             lost_points_ir += self.player_avg_points[player['player_id']]
@@ -176,6 +180,7 @@ class FantasyCalculator:
                 })
 
         df = pd.DataFrame(injury_data).groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+        print("*****BRONY INJURED GAMES COUNT: ", bronny_count)
         
         # Calculate cumulative stats - broken down by injury (start/bench) vs IR
         if not df.empty:
@@ -201,6 +206,84 @@ class FantasyCalculator:
                 
         return df
     
+    def calculate_lineup_efficiency(self) -> pd.DataFrame:
+        """
+        Calculate number of games (starter, bench, IR) and points lost due to players left on bench/IR.
+        Only counts if fewer than 10 active starters 
+        """
+
+        efficiency_data = []
+
+        for matchup in self.matchups:
+            week = matchup['week']
+
+            for side in ['home_team', 'away_team']:
+                team_data = matchup[side]
+                lineup = team_data['lineup']
+                team_id = team_data['id']
+                team_name = team_data['name']
+                starter_games = 0
+                bench_points = []
+                ir_points = []
+
+                for player in lineup:
+                    if player['slot_position'] == 'BE' and player['points'] > 0:
+                        bench_points.append(player['points'])
+                    elif player['slot_position'] == 'IR' and player['points'] > 0:
+                        ir_points.append(player['points'])
+                    elif player['slot_position'] not in ['BE', 'IR'] and player['points'] > 0:   # starter
+                        starter_games += 1
+
+                remaining_pg = 10 - starter_games
+                bench_points.sort(reverse=True)
+                ir_points.sort(reverse=True)
+
+                bench_games = len(bench_points[:remaining_pg])
+                bench_points_lost = sum(bench_points[:remaining_pg])
+                
+                ir_games = len(ir_points[:remaining_pg])
+                ir_points_lost = sum(ir_points[:remaining_pg])
+
+                efficiency_data.append({
+                    'week': week,
+                    'team_id': team_id,
+                    'team_name': team_name,
+                    'player_games': starter_games,
+                    'bench_games': bench_games,
+                    'ir_games': ir_games,
+                    'total_missed_games': bench_games + ir_games,
+                    'bench_points_lost': bench_points_lost,
+                    'ir_points_lost': ir_points_lost,
+                    'total_points_lost': bench_points_lost + ir_points_lost
+                })
+
+        # Weekly totals
+        df = pd.DataFrame(efficiency_data).groupby(['week', 'team_id', 'team_name']).sum().reset_index()
+
+        return df
+
+    def calculate_lineup_efficiency_standings(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculates season totals for total number of games (starter, BE, IR) and 
+        points lost due players being left on the bench and IR. 
+        """
+
+        if 'player_games' not in df.columns:
+            return
+
+        efficiency_standings = df.groupby(['team_id', 'team_name']).sum().reset_index()
+
+        efficiency_standings['avg_player_games'] = round(efficiency_standings['player_games'] / self.max_week, 2)
+        efficiency_standings['avg_bench_games'] = round(efficiency_standings['bench_games'] / self.max_week, 2)
+        efficiency_standings['avg_ir_games'] = round(efficiency_standings['ir_games'] / self.max_week, 2)
+        efficiency_standings['avg_total_missed_games'] = round(efficiency_standings['total_missed_games'] / self.max_week, 2)
+        efficiency_standings['avg_bench_points_lost'] = round(efficiency_standings['bench_points_lost'] / self.max_week, 2)
+        efficiency_standings['avg_ir_points_lost'] = round(efficiency_standings['ir_points_lost'] / self.max_week, 2)
+        efficiency_standings['avg_total_points_lost'] = round(efficiency_standings['total_points_lost'] / self.max_week, 2)
+
+        return efficiency_standings.drop('week').sort_values(['total_points_lost'], ascending=False)
+
+
     def get_standings(self) -> pd.DataFrame:
         """
         Get current standings with calculated stats
@@ -266,6 +349,8 @@ class FantasyCalculator:
         standings = self.get_standings()
         cumulative_stats = self.calculate_cumulative_stats()
         toughness_summary = cumulative_stats.groupby(['team_name', 'team_id'])['cumulative_pa_rank'].last().sort_values().reset_index()
+        efficiency_stats = self.calculate_lineup_efficiency()
+        efficiency_summary = self.calculate_lineup_efficiency_standings(efficiency_stats)
 
         # dataframe with team_id + team_name + avg_opponent_rank + cumulative_pa_rank to differentiate SoS stats
         toughness_summary = toughness_summary.merge(
@@ -282,6 +367,8 @@ class FantasyCalculator:
             'cumulative_stats': cumulative_stats,
             'toughness_summary': toughness_summary[toughness_col_order],
             'injury_stats': self.calculate_injury_stats(),
+            'efficiency_stats': efficiency_stats,
+            'efficiency_summary': efficiency_summary,
         }
         
         print("✓ All statistics calculated")
