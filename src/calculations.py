@@ -281,7 +281,7 @@ class FantasyCalculator:
         efficiency_standings['avg_ir_points_lost'] = round(efficiency_standings['ir_points_lost'] / self.max_week, 2)
         efficiency_standings['avg_total_points_lost'] = round(efficiency_standings['total_points_lost'] / self.max_week, 2)
 
-        return efficiency_standings.drop('week').sort_values(['total_points_lost'], ascending=False)
+        return efficiency_standings.drop('week', axis=1).sort_values(['total_points_lost'], ascending=False)
 
 
     def get_standings(self) -> pd.DataFrame:
