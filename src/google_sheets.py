@@ -261,7 +261,7 @@ class GoogleSheetsExporter:
         
         # Compile Weekly Rankings page stats, export to Google sheet, and apply formatting
         full_weekly_rankings_df = self._compile_weekly_rankings_df()
-        ws_weekly = self.create_worksheet('Weekly Rankings', len(full_weekly_rankings_df)+self.data_start_row, len(full_weekly_rankings_df.columns))
+        ws_weekly = self.create_worksheet('Weekly Rankings', len(full_weekly_rankings_df) + self.data_start_row + 1, len(full_weekly_rankings_df.columns))
         self.write_dataframe(ws_weekly, full_weekly_rankings_df, start_cell='A2')
         self.format_weekly_rankings(ws_weekly, len(full_standings_df), len(full_weekly_rankings_df.columns), full_weekly_rankings_df['week'].max())
 
@@ -501,7 +501,7 @@ class GoogleSheetsExporter:
                     "ranges": [{
                         "sheetId": worksheet.id,
                         "startRowIndex": start_row - 1,
-                        "endRowIndex": end_row,
+                        "endRowIndex": end_row - 1 if end_row is not None else None,
                         "startColumnIndex": col - 1,
                         "endColumnIndex": col
                     }],
@@ -548,7 +548,7 @@ class GoogleSheetsExporter:
                     "ranges": [{
                         "sheetId": worksheet.id,
                         "startRowIndex": start_row - 1,
-                        "endRowIndex": end_row,
+                        "endRowIndex": end_row - 1 if end_row is not None else None,
                         "startColumnIndex": 0,
                         "endColumnIndex": num_cols
                     }],
@@ -877,7 +877,7 @@ class GoogleSheetsExporter:
         # Bold min/max columns values
         for col in range(bold_extreme_start_col, num_cols+1):
             extreme = "min" if col in bold_min_cols else "max"
-            self.apply_bold_extreme(worksheet, col, extreme=extreme)
+            self.apply_bold_extreme(worksheet, col=col, start_row=self.data_start_row, end_row=last_row, extreme=extreme)
 
         # Add color scales
         for col in range(color_scale_start_col, num_cols+1):    # C -> AA
@@ -888,7 +888,7 @@ class GoogleSheetsExporter:
             
         # Add borders
         for col in vertical_borders:
-            self.apply_col_border(worksheet, col=col, start_row=1, end_row=num_teams + self.data_start_row)
+            self.apply_col_border(worksheet, col=col, start_row=1, end_row=last_row)
         self.apply_row_border(worksheet, row=last_row, start_col=1, end_col=num_cols)
 
         # Resize columns
