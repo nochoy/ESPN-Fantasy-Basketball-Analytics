@@ -311,7 +311,7 @@ class GoogleSheetsExporter:
         right_data.append(['Date', 'Version', 'Changes', '', ''])   # cols H, I, J
         right_data.append(['2026-02-27', 0.1, 'Finished adding conditional formatting rules', '', ''])
         right_data.append(['2026-03-01', 1.0, 'Initial release with Overview, Standings, and Weekly Rankings pages', '', ''])
-        right_data.append([str(today), str(version), 'Added Lineup Efficiency stats, including points lost to players left on BE/IR', '', ''])
+        right_data.append([str(today), str(version), 'Added Full Season stats + Lineup Efficiency stats, including points lost to players left on BE/IR', '', ''])
         right_data.append(['', '', '', '', '', '', ''])
         
         # FEATURES TO ADD
