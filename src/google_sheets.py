@@ -348,7 +348,7 @@ class GoogleSheetsExporter:
         left_data.append(['cumulative_total_lost_points', '', 'Cumulative total of potential points lost due to injury', '', '', '', 'Sum of total_lost_points up to that week', '', ''])
         left_data.append(['player_games', '', 'Number of active player games that are starting', '', '', '', 'Numbers of starters with points > 0', '', ''])
         left_data.append(['bench_games', '', 'Number of active player games that are left on the bench', '', '', '', 'Numbers of players left on bench with points > 0, if have available starter slots', '', ''])
-        left_data.append(['ir_games', '', 'Number of active player games that are starting', '', '', '', 'Numbers of players left on IR with points > 0, if have available starter slots', '', ''])
+        left_data.append(['ir_games', '', 'Number of active player games that are left on IR', '', '', '', 'Numbers of players left on IR with points > 0, if have available starter slots', '', ''])
         left_data.append(['bench_points_lost', '', 'Points lost due to player being left on the bench', '', '', '', 'If player on bench has points > 0 and have available starter slots', '', ''])
         left_data.append(['ir_points_lost', '', 'Points lost due to player being left on IR', '', '', '', 'If player on IR has points > 0 and have available starter slots', '', ''])
         left_data.append(['', '', '', '', '', '', ''])
