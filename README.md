@@ -4,23 +4,20 @@ A Python script to pull ESPN fantasy basketball league data, run advanced calcul
 
 ## 📊 Features
 
-### Statistics Calculated:
-- **Games Missed Due to Injury** - Track players who were injured/out while on your roster
-- **IR Slot Analysis** - Count games missed and lost points from IR players
-- **Weekly PF/PA Rankings** - See how your team ranked each week
-- **Toughest Opponent Rank** - Based on weekly PF ranks (lower = tougher opponent)
+### Stats:
+- **Win/Loss Tracking** - Cumulative and weekly rankings of wins, losses, win %
+- **Points For/Points Against (PF/PA) Rankings** - Rankings based on cumulative and week-by-week PF and PA
 - **PF/PA Differentials** - Weekly and cumulative point differentials
-- **Luck Factor** - Compare actual wins to expected wins
-- **Consistency Score** - Measure how consistent your team's scoring is
+- **Strength of Schedule** - Schedule difficulty based on cumulative PA rankings
+- **Injury Impact** - Games missed due to injury and potential points lost
+- **Lineup Efficiency** - Points left on the bench/IR when lineup wasn't set
 
 ### Google Sheets Export:
-- Standings with gold/silver/bronze formatting
-- Weekly rankings and cumulative stats
-- Toughest opponents analysis
-- Injury analysis
-- Luck factor tracking
-- Consistency metrics
-- Summary dashboard
+- Overview sheet with changelog, documentation, and standings preview
+- Standings with cumulative season stats and rankings
+- Weekly rankings with week-by-week breakdowns and cumulative stats
+- Color scale conditional formatting to optimize visual hierarchy
+- Preformatted headers, dividers, and sheets 
 
 ## 🚀 Quick Start
 
@@ -28,7 +25,7 @@ A Python script to pull ESPN fantasy basketball league data, run advanced calcul
 
 ```bash
 # Navigate to project directory
-cd "ESPN Fantasy Basketball"
+cd "ESPN Fantasy Basketball Analytics"
 
 # Create virtual environment
 py -m venv venv
@@ -57,8 +54,8 @@ pip install -r requirements.txt
    - Press F12 to open DevTools
    - Go to Application/Storage → Cookies → https://fantasy.espn.com
    - Copy values for:
-     - `espn_s2` (long string)
-     - `SWID` (looks like `{12345678-1234-1234-1234-123456789012}`)
+     - `espn_s2` (looks like `{AVAdTmHCAMkn...}`)
+     - `SWID` (looks like `{AB34C6D8-D2G4-1IK4-1K34-JK345KD890R2}`)
 
 #### Google Sheets (Optional - for export):
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
@@ -68,14 +65,10 @@ pip install -r requirements.txt
 5. Create a service account → Skip Permissions → Skip Principals with access
 6. Click on newly created account → Go to Keys → Create JSON key (will auto download json file)
 7. Rename the key file to `google-credentials.json` and place it in `config/`
-8. Manually create empty [Google Sheet](https://docs.google.com/sheets) 
-9. Share sheet with your Service Account Email with Editor permissions
-10. Use sheet name in `.env` file or CLI arg
-
+8. Manually create an empty [Google Sheet](https://docs.google.com/sheets) and share it with your service account email with Editor permissions
+9. Note the sheet name to use in `.env` file or CLI arg
 
 ### 4. Create Environment File
-
-Copy the example file and fill in your credentials:
 
 ```bash
 copy .env.example .env
@@ -93,7 +86,6 @@ ESPN_YEAR=2025
 # Google Sheets
 GOOGLE_CREDENTIALS_PATH=./config/google-credentials.json
 GOOGLE_SHEET_NAME=ESPN Fantasy Basketball Analytics
-GOOGLE_USER_EMAIL=your_email@gmail.com
 ```
 
 ### 5. Run the Script
@@ -102,29 +94,39 @@ GOOGLE_USER_EMAIL=your_email@gmail.com
 # Run with default settings (uses .env)
 python src/main.py
 
+# Override league ID
+python src/main.py --league-id 12345678
+
+# Override season year
+python src/main.py --year 2026
+
 # Analyze only first 10 weeks
 python src/main.py --weeks 10
+
+# Specify Google sheet name
+python src/main.py --sheet-name "My Fantasy Sheet"
 
 # Skip Google Sheets export
 python src/main.py --skip-export
 
-# Override league ID
-python src/main.py --league-id 12345678
+# Skip stat summary console output
+python src/main.py --silent
 ```
 
 ## 📁 Project Structure
 
 ```
-ESPN Fantasy Basketball/
+ESPN Fantasy Basketball Analytics/
 ├── config/
-│   └── google-credentials.json    # Google service account key (not in git)
+│   ├── google-credentials.json    # Google service account key (not in git)
+│   └── formatting_config.py       # Color and formatting definitions
 ├── src/
 │   ├── __init__.py
 │   ├── espn_client.py             # ESPN API wrapper
 │   ├── calculations.py            # Stat calculations
 │   ├── google_sheets.py           # Google Sheets exporter
 │   └── main.py                    # Entry point
-├── venv/                          # Virtual environment
+├── venv/                          # Virtual environment (not in git)
 ├── .env                           # Your credentials (not in git)
 ├── .env.example                   # Template for credentials
 ├── .gitignore                     # Git ignore file
@@ -132,46 +134,75 @@ ESPN Fantasy Basketball/
 └── README.md                      # This file
 ```
 
-## 📈 Available Calculations
+## 📈 Available Stats
 
-### Weekly Rankings Tab
+### Standings Sheet
 | Column | Description |
 |--------|-------------|
-| week | Week number |
-| pf | Points For |
-| pa | Points Against |
-| pf_rank | Rank by PF (1 = highest) |
-| pa_rank | Rank by PA (1 = lowest) |
-| differential | PF - PA |
+| `team_name` | Team name |
+| `team_id` | ESPN team ID |
+| `rank` | Current standing (1 = best record) |
+| `wins` / `losses` / `ties` | Win-loss-tie record |
+| `win_pct` | Win percentage |
+| `total_pf` / `total_pa` | Total Points For / Against |
+| `avg_pf` / `avg_pa` | Average Points For / Against per week |
+| `differential` | Difference between PF and PA |
+| `avg_differential` | Average weekly differential |
+| `avg_opponent_rank` | Average final rank of opponents faced (lower = tougher schedule) |
+| `cumulative_pa_rank` | Running average of PA rank (lower = tougher schedule) |
+| Total Injury Stats | Cumulative injury stats across the season |
+| `games_missed_injury` | Number of games missed due to injured non-IR players |
+| `games_missed_ir` | Number of games missed due to injured IR players |
+| `total_games_missed` | Total number of games missed due to injuries on full roster |
+| `lost_points_injury` | Potential points lost from injured non-IR players (based on player's avg FPTS) |
+| `lost_points_ir` | Potential points lost from IR players (based on player's avg FPTS) |
+| `total_lost_points` | Potential points lost from injured players on full roster (based on player's avg FPTS) |
+| Average Injury Stats (`avg_*`) | Season averages for the above 6 injury stats |
+| Lineup Efficiency | Games missed and points lost due to not setting roster |
+| `player_games` | Number of active player games that are starting |
+| `bench_games` | Number of active player games that are left on the bench if active roster spot is available and player scored above 0 |
+| `ir_games` | Number of active player games that are left on the bench if active roster spot is available and player scored above 0 |
+| `total_missed_games` | Total number of active player games missed from bench or IR players |
+| `bench_points_lost` | Points lost from bench players that could have started |
+| `ir_points_lost` | Points lost from IR players that could have started |
+| `total_points_lost` | Total points lost from bench and IR players |
+| Average Lineup Effiency (`avg_*`) | Season averages for the samabove e 6 player effiency stats |
 
-### Toughest Opponents Tab
+### Weekly Rankings Sheet
 | Column | Description |
 |--------|-------------|
-| opponent_pf_rank | Opponent's PF rank that week |
-| cumulative_avg_opp_rank | Average opponent rank (lower = tougher schedule) |
+| `week` | Week number |
+| `team_name` | Team name |
+| `team_id` | ESPN team ID |
+| `opponent_name` | Name of opponent's team |
+| `rank` | Cumulative standing up to that week |
+| `wins` / `losses` / `ties` | Cumulative win-loss-tie record up that week |
+| `win_pct` | Cumulative win percentage up to that week |
+| `pf` | Points scored that week |
+| `pa` | Points opponent scored that week |
+| `pf_rank` \ `pa_rank` | PF/PA rank that week |
+| `differential` | Difference between PF and PA |
+| `cumulative_pf` / `cumulative_pa` | Cumulative Points For / Against up to that week |
+| `cumulative_pf_rank` | Running average of weekly PF ranks (lower = more consistent high scorer) |
+| `cumulative_pa_rank` | Running average of weekly PA ranks (lower = consistently faced high scorers) |
+| `cumulative_differential` | Cumulative point differential |
+| Weekly Total Injury Stats | Weekly injury stats |
+| `games_missed_injury` | Number of games missed due to injured non-IR players that week |
+| `games_missed_ir` | Number of games missed due to injured IR players that week |
+| `total_games_missed` | Total number of games missed due to injuries on full roster that week |
+| `lost_points_injury` | Potential points lost from injured non-IR players that week (based on player's avg FPTS) |
+| `lost_points_ir` | Potential points lost from IR players that week (based on player's avg FPTS) |
+| `total_lost_points` | Potential points lost from injured players on full roster that week (based on player's avg FPTS) |
+| Cumulative Injury Stats (`cumulative_*`) | Weekly running totals for the above 6 injury stats |
+| Lineup Efficiency | Weekly games missed and points lost due to not setting roster |
+| `player_games` | Number of active player games that are starting that week |
+| `bench_games` | Number of active player games that are left on the bench that week if active roster spot is available and player scored above 0 |
+| `ir_games` | Number of active player games that are left on the bench that week if active roster spot is available and player scored above 0 |
+| `total_missed_games` | Total number of active player games missed from bench or IR players that week |
+| `bench_points_lost` | Points lost from bench players that could have started that week |
+| `ir_points_lost` | Points lost from IR players that could have started that week |
+| `total_points_lost` | Total points lost from bench and IR players that week |
 
-### Injury Analysis Tab
-| Column | Description |
-|--------|-------------|
-| games_missed_injury | Active roster players who didn't play (injured) |
-| games_missed_ir | Players in IR slot |
-| lost_points_injury | Estimated points lost from injured active players |
-| lost_points_ir | Estimated points lost from IR players |
-
-### Luck Factor Tab
-| Column | Description |
-|--------|-------------|
-| expected_wins | Expected wins based on PF vs all teams |
-| luck_factor | Actual result - expected (positive = lucky) |
-| cumulative_luck | Total luck for the season |
-
-### Consistency Tab
-| Column | Description |
-|--------|-------------|
-| avg_pf | Average Points For |
-| std_pf | Standard deviation of PF |
-| consistency_score | std_pf / avg_pf (lower = more consistent) |
-| range | max_pf - min_pf |
 
 ## 🛠️ Troubleshooting
 
@@ -184,6 +215,12 @@ ESPN Fantasy Basketball/
 - Verify `config/google-credentials.json` exists
 - Ensure the service account has access to Google Sheets and Drive APIs
 - Share your Google Sheet with the service account email
+- Check Google Drive storage quota is not exceeded
+
+### "Google Drive storage quota has been exceeded"
+- The service account has its own 15GB Drive quota
+- Try manually creating the sheet in your Drive and sharing it with the service account
+- Or use an existing sheet that already has space
 
 ### "Module not found" errors
 - Make sure virtual environment is activated
@@ -192,9 +229,11 @@ ESPN Fantasy Basketball/
 ## 📝 Notes
 
 - ESPN data is pulled in real-time from ESPN's API
-- Private league cookies expire periodically (~2 weeks), you'll need to refresh them
+- Private league cookies may expire periodically (~2 weeks), so may need to refresh them
 - Google Sheets API has rate limits (300 requests/60 seconds)
 - Injury tracking is based on roster slots and injury status at game time
+- Lineup efficiency counts points left on bench/IR only when your active starters had fewer than 10 players scoring > 0 points that day
+- Bronny James is excluded from injury tracking (auto-filtered)
 
 ## 🤝 Contributing
 
@@ -204,6 +243,3 @@ Feel free to submit issues or feature requests!
 
 MIT License - Feel free to use and modify as needed.
 
----
-
-**Enjoy dominating your fantasy league! 🏆**
