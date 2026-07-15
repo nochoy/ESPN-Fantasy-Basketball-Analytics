@@ -8,6 +8,7 @@ import sys
 import argparse
 from typing import Optional
 from dotenv import load_dotenv
+from traceback import print_exc
 
 from espn_client import ESPNClient
 from calculations import FantasyCalculator
@@ -142,7 +143,7 @@ def run_analytics(league_id: Optional[int] = None, year: Optional[int] = None,
             print(f"❌ Error exporting to Google Sheets: {e}")
             print("\nMake sure your Google credentials are set up correctly:")
             print("  1. Download service account JSON from Google Cloud Console")
-            print("  2. Save it to config/google-credentials.json")
+            print("  2. Save it to src/config/google-credentials.json")
             print("  3. Set GOOGLE_SHEET_NAME in .env file or use CLI arg")
     else:
         print("\n⏭️  Skipping Google Sheets export (--skip-export flag used)")

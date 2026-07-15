@@ -32,7 +32,7 @@ class GoogleSheetsExporter:
             credentials_path: Path to service account JSON file
             sheet_name: Name of the Google Sheet to create/use
         """
-        self.credentials_path = credentials_path or os.getenv('GOOGLE_CREDENTIALS_PATH', './config/google-credentials.json')
+        self.credentials_path = credentials_path or os.getenv('GOOGLE_CREDENTIALS_PATH', './src/config/google-credentials.json')
         self.sheet_name = sheet_name or os.getenv('GOOGLE_SHEET_NAME', 'ESPN Fantasy Basketball Analytics')
         self.client = None
         self.sheet = None

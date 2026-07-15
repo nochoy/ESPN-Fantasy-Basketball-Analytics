@@ -1,6 +1,7 @@
 # Credentials and Environment
 config/credentials.py
 config/google-credentials.json
+src/config/google-credentials.json
 .env
 *.env
 
