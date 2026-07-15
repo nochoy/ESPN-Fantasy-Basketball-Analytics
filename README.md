@@ -64,7 +64,7 @@ pip install -r requirements.txt
 4. Go to IAM & Admin → Service Accounts
 5. Create a service account → Skip Permissions → Skip Principals with access
 6. Click on newly created account → Go to Keys → Create JSON key (will auto download json file)
-7. Rename the key file to `google-credentials.json` and place it in `config/`
+7. Rename the key file to `google-credentials.json` and place it in `src/config/`
 8. Manually create an empty [Google Sheet](https://docs.google.com/sheets) and share it with your service account email with Editor permissions
 9. Note the sheet name to use in `.env` file or CLI arg
 
@@ -84,7 +84,7 @@ ESPN_SWID=your_swid_here
 ESPN_YEAR=2025
 
 # Google Sheets
-GOOGLE_CREDENTIALS_PATH=./config/google-credentials.json
+GOOGLE_CREDENTIALS_PATH=./src/config/google-credentials.json
 GOOGLE_SHEET_NAME=ESPN Fantasy Basketball Analytics
 ```
 
@@ -117,15 +117,15 @@ python src/main.py --silent
 
 ```
 ESPN Fantasy Basketball Analytics/
-├── config/
-│   ├── google-credentials.json    # Google service account key (not in git)
-│   └── formatting_config.py       # Color and formatting definitions
 ├── src/
 │   ├── __init__.py
 │   ├── espn_client.py             # ESPN API wrapper
 │   ├── calculations.py            # Stat calculations
 │   ├── google_sheets.py           # Google Sheets exporter
-│   └── main.py                    # Entry point
+│   ├── main.py                    # Entry point
+│   └── config/
+│       ├── google-credentials.json    # Google service account key (not in git)
+│       └── formatting_config.py       # Color and formatting definitions
 ├── venv/                          # Virtual environment (not in git)
 ├── .env                           # Your credentials (not in git)
 ├── .env.example                   # Template for credentials
